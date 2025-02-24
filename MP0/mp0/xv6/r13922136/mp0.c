@@ -10,19 +10,24 @@
 
 #define MAX_BUF 512  // Set buffer size limit since xv6 does not have malloc()
 
-// Manually implement strstr() 
-// funct def: char *strstr (const char *s1, const char *s2);
-// explain: strstr() finds the first occurrence of the string s2 in the string s1
+// Manually implement strstr()
+// haystack is the string we're searching in, and needle is the string we're searching for (the key)
 char *strstr(const char *haystack, const char *needle) {
-    if (!*needle) return (char *)haystack;
+    // check if the needle is empty, if so, return the haystack
+    if (!*needle) return (char *)haystack;      
 
+    // iterate through each char in the haystack
     for (; *haystack; haystack++) {
+        // if the current char in the haystack matches the first char in the needle
         if (*haystack == *needle) {
-            const char *h, *n;
+            const char *h, *n;      // ptrs that point to the current char in the haystack and the needle
+            // check if the rest of the haystack matches the needle
             for (h = haystack, n = needle; *h && *n && *h == *n; h++, n++);
+            // if the needle is found, return the haystack
             if (!*n) return (char *)haystack;
         }
-        if (*haystack == '\0') break; // Ensure the pointer does not go out of bounds
+        // if the haystack is at the end, break
+        if (*haystack == '\0') break; 
     }
     return NULL;
 }
@@ -36,11 +41,11 @@ void traverse_directory(char *path, char *key, int *file_count, int *dir_count, 
     struct dirent de;       
     char buf[MAX_BUF], *p;
 
-    // Open the directory.
+    // Open the directory
     // funct def: int fd = open(const char *path, int flags);
     // explain: fd is an int that is assigned to refer to the file when we use open()
-    if ((fd = open(path, 0)) < 0) {             // fd < 0  means that open() failed (file does not exist)
-        printf("%s [error opening dir]\n", path);
+    if ((fd = open(path, 0)) < 0) {                 // fd < 0  means that open() failed (file does not exist)
+        printf("%s [error opening dir]\n", path);   // required error output in 5.3 detailed steps 3. 
         return;
     }
 
@@ -57,13 +62,12 @@ void traverse_directory(char *path, char *key, int *file_count, int *dir_count, 
     // Case: If it's a file, check for the key
     if (st.type == T_FILE) {
         (*file_count)++;
-        printf("Found a file and now file count = %d\n", *file_count);
 
-        // Open file and check for key occurrences
         int key_count = 0;
         char *ptr = path;
 
-        
+        // funct def: char *strstr (const char *s1, const char *s2);
+        // explain: strstr() finds the first occurrence of the string s2 in the string s1
         // ex: os2025/d2/d3/a 2     key[] = "d";
         // ex: 1. strstr(ptr, key) points to "d2/d3/a", ptr++ points to "2/d3/a"
         // ex: 2. strstr(ptr, key) points to "d3/a", ptr++ points to "3/a"
@@ -84,32 +88,31 @@ void traverse_directory(char *path, char *key, int *file_count, int *dir_count, 
         // We do not count the root directory in the amount of directories
         if (strcmp(path, root_directory) != 0) {
             (*dir_count)++;
-            printf("Found a directory and now dir count = %d\n", *dir_count);
         }
     
         int key_count = 0;
         char *ptr = path;
-        printf("Searching for key in %s\n", path);
-        while ((ptr = strstr(ptr, key)) != NULL)
-        {
-            printf("Found key in %s\n", ptr);
+        while ((ptr = strstr(ptr, key)) != NULL) {
             key_count++;
-            ptr++;
-            printf("Modified key count = %d, ptr position = %s\n", key_count, ptr);
+            ptr++;  
         }
-
+    
         printf("%s %d\n", path, key_count);
     
         // Read directory entries
+        // explain: We use the following while loop to check that if a full struct dirent has been read
+        // explain: when reaching the end of the directory, read() will return 0 < sizeof(de) and break the loop
         while (read(fd, &de, sizeof(de)) == sizeof(de)) {
-            
-            // Construct the full path
-            // strcpy(buf, path);
-            // p = buf + strlen(buf);
-            // *p++ = '/';
-            // strcpy(p, de.name);
+            // inode == 0 means that the entry is invalid
+            // "." and ".." are the current and parent directories (added even though they would not be in the testcases)
+            if (de.inum == 0 || strcmp(de.name, ".") == 0 || strcmp(de.name, "..") == 0)
+                continue;
 
-            snprintf(buf, sizeof(buf), "%s/%s", path, de.name);
+            // Construct the full path
+            strcpy(buf, path);         // copy the current path to buf
+            p = buf + strlen(buf);     // move the ptr p to the end of the buf
+            *p++ = '/';                // add a '/' to the end of buf and move the ptr to the position after '/'
+            strcpy(p, de.name);        // copy the name of the entry to the end of buf
     
             // Recursively call function for the subdirectories and files
             traverse_directory(buf, key, file_count, dir_count, pipe_fd, root_directory);
