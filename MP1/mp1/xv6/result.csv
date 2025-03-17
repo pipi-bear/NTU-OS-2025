@@ -1,0 +1,19 @@
+== Test thread package with public testcase part1-0 (10%) ==
+thread package with public testcase part1-0: FAIL (2.8s)
+    [Error] Output on line 1: '', should be 'thread 1: 100'
+== Test thread package with public testcase part1-1 (10%) ==
+thread package with public testcase part1-1: FAIL (0.6s)
+    [Error] Output on line 1: '', should be 'thread 1: 100'
+== Test thread package with public testcase part1-2 (10%) ==
+thread package with public testcase part1-2: FAIL (0.6s)
+    [Error] Output on line 1: '', should be 'thread 1: 0'
+== Test thread package with public testcase part1-3 (10%) ==
+thread package with public testcase part1-3: FAIL (0.7s)
+    [Error] Output on line 1: '', should be 'thread 1: 0'
+== Test thread package with public testcase part2-0 (10%) ==
+thread package with public testcase part2-0: FAIL (1.0s)
+    [Error] Output on line 1: '', should be 'thread 1: 100'
+== Test thread package with public testcase part2-1 (10%) ==
+thread package with public testcase part2-1: FAIL (1.0s)
+    [Error] Output on line 1: '', should be 'thread 1: 100'
+Score: 0/60
