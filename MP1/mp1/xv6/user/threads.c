@@ -61,110 +61,130 @@ void thread_add_runqueue(struct thread *t){
     }
 }
 
-void thread_yield(void){
-    if (current_thread->signo != -1) {           
-        printf("Thread %d has a signal %d\n", current_thread->ID, current_thread->signo);
-        if(setjmp(current_thread->handler_env) == 0) {
-            if (current_thread->handler_buf_set == 0) { 
-                current_thread->handler_buf_set = 1; 
-                printf("first time saving context, set handler_buf_set to 1\n");
-            }
-            printf("save context and schedule\n");
-            schedule();  
-            printf("schedule done, dispatch\n");
-            dispatch();  
-        } else {
-            return;
-        }
-    } else {
-        printf("Thread %d has no signal and have buf_set = %d\n", current_thread->ID, current_thread->buf_set);
-        if(setjmp(current_thread->env) == 0) {
-            if (current_thread->buf_set == 0) { 
-                current_thread->buf_set = 1; 
-                printf("first time saving context, set buf_set to 1\n");
-            }
-            printf("save context and schedule\n");
+void thread_yield(void) {
+    // Check if we're in a signal handler context or normal thread context
+    int in_handler = (current_thread->signo != -1 && current_thread->handler_buf_set == 1);
+    
+    if (in_handler) {
+        printf("Thread %d yielding from signal handler (signal %d)\n", 
+               current_thread->ID, current_thread->signo);
+        
+        // We're in a signal handler, save context in handler_env
+        if (setjmp(current_thread->handler_env) == 0) {
+            // Don't modify the stack pointer - setjmp already captured it
+            printf("Saved handler context, scheduling next thread\n");
+            
             schedule();
-            printf("schedule done, dispatch\n");
+            printf("Schedule done, dispatching\n");
             dispatch();
-        } else {
-            return;
+            // We should never reach here
+            printf("ERROR: Returned from dispatch in handler context\n");
+            exit(1);
         }
+        // When we return here via longjmp, just continue execution
+        printf("Resumed signal handler execution via longjmp\n");
+    } else {
+        printf("Thread %d yielding from normal execution (buf_set=%d)\n", 
+               current_thread->ID, current_thread->buf_set);
+        
+        // We're in normal thread execution, save context in env
+        if (setjmp(current_thread->env) == 0) {
+            if (current_thread->buf_set == 0) {
+                current_thread->buf_set = 1;
+                printf("First time saving context, set buf_set to 1\n");
+            }
+            
+            // Don't modify the stack pointer - setjmp already captured it
+            printf("Saved normal context, scheduling next thread\n");
+            
+            schedule();
+            printf("Schedule done, dispatching\n");
+            dispatch();
+            // We should never reach here
+            printf("ERROR: Returned from dispatch in normal context\n");
+            exit(1);
+        }
+        // When we return here via longjmp, just continue execution
+        printf("Resumed normal thread execution via longjmp\n");
     }
+    // No return statement - just continue execution from where we left off
 }
 
 
 // aim: Switch execution to the thread chosen by schedule()
 void dispatch(void) {
     struct thread *t = current_thread;
-    printf("\n");
-    printf("---------------------------------\n");
-    printf("Thread %d is being dispatched and has buf_set = %d\n", t->ID, t->buf_set);
-    // If a signal exists, execute handler before restoring normal execution
-    if (t->signo != -1) {                                          // case: has signal (*)
-        printf("case: has signal: %d\n", t->signo);
-        if (t->sig_handler[t->signo] != NULL_FUNC) {              // case: has handler for this signal (*1)
+    printf("\n---------------------------------\n");
+    printf("Thread %d is being dispatched (buf_set=%d, handler_buf_set=%d, signo=%d)\n", 
+           t->ID, t->buf_set, t->handler_buf_set, t->signo);
+    
+    // If a signal exists and handler_buf_set is 1, we're resuming a handler that yielded
+    if (t->signo != -1 && t->handler_buf_set == 1) {
+        printf("Resuming signal handler for thread %d (signal %d)\n", t->ID, t->signo);
+        
+        // Resume the handler - this will jump back to thread_yield
+        // Don't modify the stack pointer - it was captured by setjmp
+        longjmp(t->handler_env, 1);
+    }
+    // If a signal exists but handler_buf_set is 0, we need to start the handler
+    else if (t->signo != -1) {
+        printf("Thread has pending signal %d\n", t->signo);
+        
+        if (t->sig_handler[t->signo] != NULL_FUNC) {
             int sig = t->signo;
             void (*handler)(int) = t->sig_handler[t->signo];
-
-            if (setjmp(t->handler_env) == 0) {              // case: first time saving context (*2)
-                printf("first time saving context\n");
-                t->handler_buf_set = 1;
-                printf("---let handler execute---\n");
-                handler(sig);  // Execute the signal handler
-                t->signo = -1;  // Reset signal AFTER execution
+            
+            // First time handling this signal
+            printf("First time handling signal %d\n", sig);
+            
+            // Save the current state so we can return to it after the handler completes
+            if (setjmp(t->env) == 0) {
+                // Execute the handler
+                printf("Executing signal handler\n");
+                t->handler_buf_set = 1;  // Mark that we're in a handler
+                handler(sig);
                 
-                // Force a complete reset of the thread environment to ensure changes persist
-                t->buf_set = 0;
+                // If we get here, the handler returned normally
+                printf("Handler returned normally\n");
+                t->signo = -1;  // Clear the signal
+                t->handler_buf_set = 0;  // Reset handler flag
                 
-                // Update the handler environment's stack pointer to capture the current stack state
-                // This should help preserve any changes made by the handler
-                t->handler_env->sp = (unsigned long)t->stack_p;
-                printf("Updated handler_env stack pointer after handler execution\n");
-                
-                // Explicitly save the current stack state after handler execution
-                printf("Saving stack state after handler execution\n");
-                longjmp(t->handler_env, 1);
-            } else {                                        // case: thread executed before, restore by longjmp is enough 
-                printf("longjmp from handler_env, so set handler_buf_set to 0\n");
-                t->handler_buf_set = 0;
-                
-                // Start fresh with the thread execution to ensure modified variables are preserved
-                printf("Starting fresh thread execution after signal handling\n");
-                t->buf_set = 0;  // Force reinitialization
-                
-                // Completely reinitialize the thread environment
-                if (setjmp(t->env) == 0) {
-                    // Set up a fresh stack with the current stack pointer
-                    // This should preserve any changes made by the signal handler
-                    t->env->sp = (unsigned long)t->stack_p;
-                    printf("Reinitializing stack pointer to %p after signal handling\n", t->stack_p);
-                    t->buf_set = 1;
+                // Continue with normal thread execution
+                if (t->buf_set) {
+                    printf("Resuming normal thread execution\n");
                     longjmp(t->env, 1);
                 } else {
-                    // This is where execution will resume after longjmp
-                    // The stack should now contain any changes made by the signal handler
+                    // Thread hasn't started yet
+                    printf("Starting thread function after handler\n");
+                    t->buf_set = 1;
                     t->fp(t->arg);
                     thread_exit();
                 }
             }
-        } else {                                                // case: no handler for this signal (*1)
+            // We'll never get here
+        } else {
+            // No handler registered for this signal
+            printf("No handler for signal %d, exiting thread\n", t->signo);
             thread_exit();
         }
-    } else {                                                       // case: no signal (*)
+    } else {
+        // Normal thread execution (no signal)
         if (t->buf_set == 0) {
-            printf("enter buf_set = 0\n");
+            // Thread hasn't started yet
+            printf("Starting thread for the first time\n");
             t->buf_set = 1;
             if (setjmp(t->env) == 0) {
                 t->env->sp = (unsigned long)t->stack_p;
                 longjmp(t->env, 1);
             } else {
+                // This is where execution starts
                 t->fp(t->arg);
                 thread_exit();
             }
-        } else {    // thread executed before, restore by longjmp is enough
-            printf("Dispatched so set buf_set to 0\n");
-            t->buf_set = 0;
+        } else {
+            // Thread was already running, just resume it
+            printf("Resuming normal thread execution\n");
+            // Don't modify the stack pointer - it was captured by setjmp
             longjmp(t->env, 1);
         }
     }
