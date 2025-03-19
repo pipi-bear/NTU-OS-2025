@@ -62,52 +62,44 @@ void thread_add_runqueue(struct thread *t){
 }
 
 void thread_yield(void) {
-    // Check if we're in a signal handler context or normal thread context
-    int in_handler = (current_thread->signo != -1 && current_thread->handler_buf_set == 1);
+    struct thread *t = current_thread;
     
-    if (in_handler) {
-        printf("Thread %d yielding from signal handler (signal %d)\n", 
-               current_thread->ID, current_thread->signo);
+    // Check if we're in a signal handler or normal thread execution
+    if (t->signo != -1 && t->handler_buf_set == 1) {
+        printf("Thread %d yielding from signal handler (signal %d)\n", t->ID, t->signo);
+        // if (t->handler_buf_set == 1) {
+        //     t->handler_env->sp = (unsigned long)t->stack_p;
+        // }
         
-        // We're in a signal handler, save context in handler_env
-        if (setjmp(current_thread->handler_env) == 0) {
-            // Don't modify the stack pointer - setjmp already captured it
-            printf("Saved handler context, scheduling next thread\n");
-            
+        // Save the handler context
+        if (setjmp(t->handler_env) == 0) {
+            printf("Saved handler context, now scheduling\n");
             schedule();
-            printf("Schedule done, dispatching\n");
             dispatch();
             // We should never reach here
             printf("ERROR: Returned from dispatch in handler context\n");
             exit(1);
+        } else {
+            printf("Resumed handler execution after yield\n");
+
         }
-        // When we return here via longjmp, just continue execution
-        printf("Resumed signal handler execution via longjmp\n");
     } else {
-        printf("Thread %d yielding from normal execution (buf_set=%d)\n", 
-               current_thread->ID, current_thread->buf_set);
+        printf("Thread %d yielding from normal execution\n", t->ID);
         
-        // We're in normal thread execution, save context in env
-        if (setjmp(current_thread->env) == 0) {
-            if (current_thread->buf_set == 0) {
-                current_thread->buf_set = 1;
-                printf("First time saving context, set buf_set to 1\n");
-            }
-            
-            // Don't modify the stack pointer - setjmp already captured it
-            printf("Saved normal context, scheduling next thread\n");
-            
+        // Save the normal thread context
+        if (setjmp(t->env) == 0) {
+            printf("Saved normal context, now scheduling\n");
             schedule();
-            printf("Schedule done, dispatching\n");
             dispatch();
             // We should never reach here
             printf("ERROR: Returned from dispatch in normal context\n");
             exit(1);
+        } else {
+            printf("Resumed normal execution after yield\n");
+            // Explicitly return to continue normal execution
+            return;
         }
-        // When we return here via longjmp, just continue execution
-        printf("Resumed normal thread execution via longjmp\n");
     }
-    // No return statement - just continue execution from where we left off
 }
 
 
@@ -121,9 +113,7 @@ void dispatch(void) {
     // If a signal exists and handler_buf_set is 1, we're resuming a handler that yielded
     if (t->signo != -1 && t->handler_buf_set == 1) {
         printf("Resuming signal handler for thread %d (signal %d)\n", t->ID, t->signo);
-        
         // Resume the handler - this will jump back to thread_yield
-        // Don't modify the stack pointer - it was captured by setjmp
         longjmp(t->handler_env, 1);
     }
     // If a signal exists but handler_buf_set is 0, we need to start the handler
@@ -184,7 +174,6 @@ void dispatch(void) {
         } else {
             // Thread was already running, just resume it
             printf("Resuming normal thread execution\n");
-            // Don't modify the stack pointer - it was captured by setjmp
             longjmp(t->env, 1);
         }
     }
