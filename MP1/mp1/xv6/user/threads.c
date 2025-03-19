@@ -3,15 +3,10 @@
 #include "user/threads.h"
 #include "user/user.h"
 #define NULL 0
-
-
 static struct thread* current_thread = NULL;
 static int id = 1;
-
-//the below 2 jmp buffer will be used for main function and thread context switching
 static jmp_buf env_st; 
 static jmp_buf env_tmp;  
-
 struct thread *get_current_thread() {
     return current_thread;
 }
@@ -36,7 +31,6 @@ struct thread *thread_create(void (*f)(void *), void *arg){
     t->stack = (void*) new_stack;               // points to the beginning of allocated stack memory for the thread.
     t->stack_p = (void*) new_stack_p;           // points to the current execution part of the thread.
     id++;   // increments ID for the next thread
-
     // part 2
     t->suspended = -1;               // indicating that the thread is not suspended
     t->sig_handler[0] = NULL_FUNC;
@@ -46,26 +40,16 @@ struct thread *thread_create(void (*f)(void *), void *arg){
     //printf("Thread %d created\n", t->ID);
     return t;                       // return the pointer to the newly created thread
 }
-
-
 void thread_add_runqueue(struct thread *t){
-    // printf("Thread %d added to run queue\n", t->ID);
     if(current_thread == NULL){                     // case: if no thread currently in the runqueue
-        // printf("No thread in runqueue, adding thread %d\n", t->ID);
         current_thread = t;
         current_thread->next = current_thread;
         current_thread->previous = current_thread;
     } else {                                          // case: exists thread already in runqueue
-        //printf("Thread %d already in runqueue, adding thread %d\n", current_thread->ID, t->ID);
-        //TO DO
-        // aim: 1. Insert t before current_thread in the circular linked list 
-        // aim: 2. Update next and previous pointers
         t->next = current_thread;
         t->previous = current_thread->previous;
         current_thread->previous->next = t;
         current_thread->previous = t;
-
-        // Let the child thread (t) inherit the 2 signal handlers (0, 1) from its parent (current_thread) if they exist
         for (int i = 0; i < 2; i++) {
             if (current_thread->sig_handler[i] != NULL_FUNC) {
                 // printf("Thread %d gets signal handler %d from its parent %d\n", t->ID, i, current_thread->ID);
@@ -78,76 +62,117 @@ void thread_add_runqueue(struct thread *t){
 }
 
 void thread_yield(void){
-    //TO DO
-    // Check if the current thread has an active signal
-    // printf("Thread %d is yielding\n", current_thread->ID);
     if (current_thread->signo != -1) {           
-        // printf("Thread %d has a signal %d\n", current_thread->ID, current_thread->signo);
-        if (current_thread->handler_buf_set == 0) { 
-            if (setjmp(current_thread->handler_env) == 0) {
+        printf("Thread %d has a signal %d\n", current_thread->ID, current_thread->signo);
+        if(setjmp(current_thread->handler_env) == 0) {
+            if (current_thread->handler_buf_set == 0) { 
                 current_thread->handler_buf_set = 1; 
-                // printf("save context and schedule\n");
-                schedule();  // Determine which thread to run next
-                // printf("schedule done, dispatch\n");
-                dispatch();  // Execute the new thread
-            } 
-        } 
-        return;
-    }
-    // printf("Thread %d has no signal\n", current_thread->ID);
-    if (current_thread->buf_set == 0) { 
-        if (setjmp(current_thread->env) == 0) {   
-            current_thread->buf_set = 1; 
-            // printf("save context and schedule\n");
+                printf("first time saving context, set handler_buf_set to 1\n");
+            }
+            printf("save context and schedule\n");
             schedule();  
-            // printf("schedule done, dispatch\n");
+            printf("schedule done, dispatch\n");
             dispatch();  
-        } 
+        } else {
+            return;
+        }
+    } else {
+        printf("Thread %d has no signal and have buf_set = %d\n", current_thread->ID, current_thread->buf_set);
+        if(setjmp(current_thread->env) == 0) {
+            if (current_thread->buf_set == 0) { 
+                current_thread->buf_set = 1; 
+                printf("first time saving context, set buf_set to 1\n");
+            }
+            printf("save context and schedule\n");
+            schedule();
+            printf("schedule done, dispatch\n");
+            dispatch();
+        } else {
+            return;
+        }
     }
-    return;
 }
+
 
 // aim: Switch execution to the thread chosen by schedule()
 void dispatch(void) {
     struct thread *t = current_thread;
-    // printf("Current thread being dispatched: %d\n", t->ID);
-    
-    // Ensure the thread context is initialized
-    if (t->buf_set == 0) {
-        t->buf_set = 1;
-        if (setjmp(t->env) == 0) {
-            // First time execution
-            if (t->signo != -1 && t->sig_handler[t->signo] != NULL_FUNC) {
-                int sig = t->signo;
-                void (*handler)(int) = t->sig_handler[t->signo];
+    printf("\n");
+    printf("---------------------------------\n");
+    printf("Thread %d is being dispatched and has buf_set = %d\n", t->ID, t->buf_set);
+    // If a signal exists, execute handler before restoring normal execution
+    if (t->signo != -1) {                                          // case: has signal (*)
+        printf("case: has signal: %d\n", t->signo);
+        if (t->sig_handler[t->signo] != NULL_FUNC) {              // case: has handler for this signal (*1)
+            int sig = t->signo;
+            void (*handler)(int) = t->sig_handler[t->signo];
 
-                if (setjmp(t->handler_env) == 0) {  
-                    t->handler_buf_set = 1;
-                    handler(sig); // Execute the signal handler
-                    t->signo = -1;  // Reset signal AFTER execution
+            if (setjmp(t->handler_env) == 0) {              // case: first time saving context (*2)
+                printf("first time saving context\n");
+                t->handler_buf_set = 1;
+                printf("---let handler execute---\n");
+                handler(sig);  // Execute the signal handler
+                t->signo = -1;  // Reset signal AFTER execution
+                
+                // Force a complete reset of the thread environment to ensure changes persist
+                t->buf_set = 0;
+                
+                // Update the handler environment's stack pointer to capture the current stack state
+                // This should help preserve any changes made by the handler
+                t->handler_env->sp = (unsigned long)t->stack_p;
+                printf("Updated handler_env stack pointer after handler execution\n");
+                
+                // Explicitly save the current stack state after handler execution
+                printf("Saving stack state after handler execution\n");
+                longjmp(t->handler_env, 1);
+            } else {                                        // case: thread executed before, restore by longjmp is enough 
+                printf("longjmp from handler_env, so set handler_buf_set to 0\n");
+                t->handler_buf_set = 0;
+                
+                // Start fresh with the thread execution to ensure modified variables are preserved
+                printf("Starting fresh thread execution after signal handling\n");
+                t->buf_set = 0;  // Force reinitialization
+                
+                // Completely reinitialize the thread environment
+                if (setjmp(t->env) == 0) {
+                    // Set up a fresh stack with the current stack pointer
+                    // This should preserve any changes made by the signal handler
+                    t->env->sp = (unsigned long)t->stack_p;
+                    printf("Reinitializing stack pointer to %p after signal handling\n", t->stack_p);
+                    t->buf_set = 1;
+                    longjmp(t->env, 1);
+                } else {
+                    // This is where execution will resume after longjmp
+                    // The stack should now contain any changes made by the signal handler
+                    t->fp(t->arg);
+                    thread_exit();
                 }
             }
-
-            // Execute thread function after handling signal
-            t->fp(t->arg);
-            thread_exit();  // Exit after function execution
+        } else {                                                // case: no handler for this signal (*1)
+            thread_exit();
         }
-        return;
+    } else {                                                       // case: no signal (*)
+        if (t->buf_set == 0) {
+            printf("enter buf_set = 0\n");
+            t->buf_set = 1;
+            if (setjmp(t->env) == 0) {
+                t->env->sp = (unsigned long)t->stack_p;
+                longjmp(t->env, 1);
+            } else {
+                t->fp(t->arg);
+                thread_exit();
+            }
+        } else {    // thread executed before, restore by longjmp is enough
+            printf("Dispatched so set buf_set to 0\n");
+            t->buf_set = 0;
+            longjmp(t->env, 1);
+        }
     }
-
-    // Resume execution after handling a signal (if applicable)
-    if (t->handler_buf_set == 1) {
-        t->handler_buf_set = 0;  // Mark handler as done
-        t->signo = -1;           // Reset signal
-        longjmp(t->env, 1);
-    }
-
-    // Resume normal execution
-    longjmp(t->env, 1);
 }
 
 //schedule will follow the rule of FIFO
 void schedule(void){
+    printf("Get into schedule and current thread is %d\n", current_thread->ID);
     current_thread = current_thread->next;
     
     //Part 2: TO DO
@@ -155,15 +180,17 @@ void schedule(void){
         // When current thread is suspended, skip this thread and move to the next one
         current_thread = current_thread->next;  
     }
+    printf("scheduled to thread %d\n", current_thread->ID);
 }
 
 // aim: 1. remove the calling thread from runqueue
 // aim: 2. free stack, struct thread
-// aim: 3. update current_thread with next thread in runqueue
+// aim: 3. update current_thread with next to-be-thread in runqueue (schedule())
 // aim: 4. call dispatch
 // note: when the last thread exits, return to the main function
 
 void thread_exit(void){
+    printf("thread_exit\n");
     if(current_thread->next != current_thread){     // case: still exist other thread in the runqueue
         //TO DO
         // Save current_thread to t since we'll need to modify current_thread in (1.), (3.), but we then need to free this original current_thread in (2.) 
@@ -173,7 +200,8 @@ void thread_exit(void){
         current_thread->next->previous = current_thread->previous;
         
         // (3.)
-        current_thread = current_thread->next;
+        //current_thread = current_thread->next;
+        schedule();  // consider the case that current_thread->next is suspended, and should move on find the next thread 
 
         // (2.)
         free(t->stack);

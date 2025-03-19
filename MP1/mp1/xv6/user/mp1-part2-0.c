@@ -78,9 +78,16 @@ void f1(void *arg)
     // Create and add thread 2, thread 3
     struct thread *t2 = thread_create(f2, NULL);
     thread_add_runqueue(t2);
+    printf("\n-----debug print in mp1-part2-0.c (after t2 created and added to runqueue)-----\n");
+    printf("current thread is %d\n", get_current_thread()->ID);
+    printf("next thread of current thread is %d\n", get_current_thread()->next->ID);
 
     struct thread *t3 = thread_create(f3, NULL);
     thread_add_runqueue(t3);
+    printf("\n-----debug print in mp1-part2-0.c (after t3 created and added to runqueue)-----\n");
+    printf("current thread is %d\n", get_current_thread()->ID);
+    printf("next thread of current thread is %d\n", get_current_thread()->next->ID);
+    printf("---------------------------------\n");
 
     // Send signal=0 to t2 and signal=1 to t3 (trigger their handlers)
     thread_kill(t2, 0);
