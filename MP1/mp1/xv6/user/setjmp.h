@@ -18,8 +18,6 @@ struct jmp_buf_data {
 	unsigned long sp;
 };
 
-// jmp_buf is an array of one jmp_buf_data
-// When passed to setjmp() or longjmp(), it behaves like a pointer (since arrays decay into pointers when used as function arguments).
 typedef struct jmp_buf_data jmp_buf[1];
 
 int setjmp(jmp_buf jmp);

@@ -18,7 +18,7 @@ void s2(int signo)
    8:	85aa                	mv	a1,a0
     printf("handler 2: %d\n", signo);
    a:	00001517          	auipc	a0,0x1
-   e:	e5e50513          	addi	a0,a0,-418 # e68 <get_current_thread+0x16>
+   e:	e5e50513          	addi	a0,a0,-418 # e68 <get_current_thread+0x18>
   12:	00001097          	auipc	ra,0x1
   16:	8c4080e7          	jalr	-1852(ra) # 8d6 <printf>
 }
@@ -41,7 +41,7 @@ void s2(int signo)
   34:	44d1                	li	s1,20
         else printf("handler 3: %d\n", i*2+1);
   36:	00001a17          	auipc	s4,0x1
-  3a:	e42a0a13          	addi	s4,s4,-446 # e78 <get_current_thread+0x26>
+  3a:	e42a0a13          	addi	s4,s4,-446 # e78 <get_current_thread+0x28>
         if(i == 15) {
   3e:	49f9                	li	s3,30
   40:	a831                	j	5c <s3+0x3a>
@@ -55,7 +55,7 @@ void s2(int signo)
   50:	03348063          	beq	s1,s3,70 <s3+0x4e>
         thread_yield();
   54:	00001097          	auipc	ra,0x1
-  58:	d0c080e7          	jalr	-756(ra) # d60 <thread_yield>
+  58:	d18080e7          	jalr	-744(ra) # d6c <thread_yield>
         if(signo) printf("handler 3: %d\n", i*2);
   5c:	fe0913e3          	bnez	s2,42 <s3+0x20>
         else printf("handler 3: %d\n", i*2+1);
@@ -91,13 +91,13 @@ void f3(void *arg)
   94:	f9258593          	addi	a1,a1,-110 # 22 <s3>
   98:	4501                	li	a0,0
   9a:	00001097          	auipc	ra,0x1
-  9e:	d5c080e7          	jalr	-676(ra) # df6 <thread_register_handler>
+  9e:	d68080e7          	jalr	-664(ra) # e02 <thread_register_handler>
     thread_register_handler(1, s3);
   a2:	00000597          	auipc	a1,0x0
   a6:	f8058593          	addi	a1,a1,-128 # 22 <s3>
   aa:	4505                	li	a0,1
   ac:	00001097          	auipc	ra,0x1
-  b0:	d4a080e7          	jalr	-694(ra) # df6 <thread_register_handler>
+  b0:	d56080e7          	jalr	-682(ra) # e02 <thread_register_handler>
 
     int i = 10000;
     while (1) {
@@ -105,12 +105,12 @@ void f3(void *arg)
   b4:	6489                	lui	s1,0x2
   b6:	71048593          	addi	a1,s1,1808 # 2710 <__global_pointer$+0xfef>
   ba:	00001517          	auipc	a0,0x1
-  be:	dce50513          	addi	a0,a0,-562 # e88 <get_current_thread+0x36>
+  be:	dce50513          	addi	a0,a0,-562 # e88 <get_current_thread+0x38>
   c2:	00001097          	auipc	ra,0x1
   c6:	814080e7          	jalr	-2028(ra) # 8d6 <printf>
   ca:	71148493          	addi	s1,s1,1809
   ce:	00001a17          	auipc	s4,0x1
-  d2:	dbaa0a13          	addi	s4,s4,-582 # e88 <get_current_thread+0x36>
+  d2:	dbaa0a13          	addi	s4,s4,-582 # e88 <get_current_thread+0x38>
         if(i == 10005) {
   d6:	6989                	lui	s3,0x2
   d8:	71598993          	addi	s3,s3,1813 # 2715 <__global_pointer$+0xff4>
@@ -121,7 +121,7 @@ void f3(void *arg)
         }
         thread_yield();
   e0:	00001097          	auipc	ra,0x1
-  e4:	c80080e7          	jalr	-896(ra) # d60 <thread_yield>
+  e4:	c8c080e7          	jalr	-884(ra) # d6c <thread_yield>
         printf("thread 3: %d\n", i++);
   e8:	0014891b          	addiw	s2,s1,1
   ec:	85a6                	mv	a1,s1
@@ -132,7 +132,7 @@ void f3(void *arg)
   f8:	ff3913e3          	bne	s2,s3,de <f3+0x5e>
             thread_exit();
   fc:	00001097          	auipc	ra,0x1
- 100:	ad0080e7          	jalr	-1328(ra) # bcc <thread_exit>
+ 100:	ad2080e7          	jalr	-1326(ra) # bce <thread_exit>
  104:	bfe9                	j	de <f3+0x5e>
 
 0000000000000106 <f2>:
@@ -156,20 +156,20 @@ void f2(void *arg)
  11e:	ee658593          	addi	a1,a1,-282 # 0 <s2>
  122:	4501                	li	a0,0
  124:	00001097          	auipc	ra,0x1
- 128:	cd2080e7          	jalr	-814(ra) # df6 <thread_register_handler>
+ 128:	cde080e7          	jalr	-802(ra) # e02 <thread_register_handler>
     thread_register_handler(1, s2);
  12c:	00000597          	auipc	a1,0x0
  130:	ed458593          	addi	a1,a1,-300 # 0 <s2>
  134:	4505                	li	a0,1
  136:	00001097          	auipc	ra,0x1
- 13a:	cc0080e7          	jalr	-832(ra) # df6 <thread_register_handler>
+ 13a:	ccc080e7          	jalr	-820(ra) # e02 <thread_register_handler>
 
     int i = 0;
  13e:	4581                	li	a1,0
     while(1) {
         printf("thread 2: %d\n",i++);
  140:	00001997          	auipc	s3,0x1
- 144:	d5898993          	addi	s3,s3,-680 # e98 <get_current_thread+0x46>
+ 144:	d5898993          	addi	s3,s3,-680 # e98 <get_current_thread+0x48>
         if(i==5){
  148:	4915                	li	s2,5
             // Suspend this thread (g_t1) at i=103
@@ -184,11 +184,11 @@ void f2(void *arg)
  150:	ddca8a93          	addi	s5,s5,-548 # f28 <g_t2>
             printf("thread %d: suspending\n", g_t2->ID);             // "thread 1: suspending"
  154:	00001b17          	auipc	s6,0x1
- 158:	d54b0b13          	addi	s6,s6,-684 # ea8 <get_current_thread+0x56>
+ 158:	d54b0b13          	addi	s6,s6,-684 # ea8 <get_current_thread+0x58>
  15c:	a80d                	j	18e <f2+0x88>
             g_t2 = get_current_thread();
  15e:	00001097          	auipc	ra,0x1
- 162:	cf4080e7          	jalr	-780(ra) # e52 <get_current_thread>
+ 162:	cf2080e7          	jalr	-782(ra) # e50 <get_current_thread>
  166:	00aab023          	sd	a0,0(s5)
             printf("thread %d: suspending\n", g_t2->ID);             // "thread 1: suspending"
  16a:	09452583          	lw	a1,148(a0)
@@ -198,12 +198,12 @@ void f2(void *arg)
             thread_suspend(g_t2);  // g_t1 points to the same thread
  178:	000ab503          	ld	a0,0(s5)
  17c:	00001097          	auipc	ra,0x1
- 180:	cb4080e7          	jalr	-844(ra) # e30 <thread_suspend>
+ 180:	cb2080e7          	jalr	-846(ra) # e2e <thread_suspend>
             thread_exit();
         }
         thread_yield();
  184:	00001097          	auipc	ra,0x1
- 188:	bdc080e7          	jalr	-1060(ra) # d60 <thread_yield>
+ 188:	be8080e7          	jalr	-1048(ra) # d6c <thread_yield>
         printf("thread 2: %d\n",i++);
  18c:	85a6                	mv	a1,s1
  18e:	0015849b          	addiw	s1,a1,1
@@ -216,7 +216,7 @@ void f2(void *arg)
  1a0:	ff4492e3          	bne	s1,s4,184 <f2+0x7e>
             thread_exit();
  1a4:	00001097          	auipc	ra,0x1
- 1a8:	a28080e7          	jalr	-1496(ra) # bcc <thread_exit>
+ 1a8:	a2a080e7          	jalr	-1494(ra) # bce <thread_exit>
  1ac:	bfe1                	j	184 <f2+0x7e>
 
 00000000000001ae <f1>:
@@ -248,7 +248,7 @@ void f1(void *arg)
  1da:	8caa                	mv	s9,a0
     thread_add_runqueue(t2);
  1dc:	00001097          	auipc	ra,0x1
- 1e0:	988080e7          	jalr	-1656(ra) # b64 <thread_add_runqueue>
+ 1e0:	98a080e7          	jalr	-1654(ra) # b66 <thread_add_runqueue>
     struct thread *t3 = thread_create(f3, NULL);
  1e4:	4581                	li	a1,0
  1e6:	00000517          	auipc	a0,0x0
@@ -258,7 +258,7 @@ void f1(void *arg)
  1f6:	8c2a                	mv	s8,a0
     thread_add_runqueue(t3);
  1f8:	00001097          	auipc	ra,0x1
- 1fc:	96c080e7          	jalr	-1684(ra) # b64 <thread_add_runqueue>
+ 1fc:	96e080e7          	jalr	-1682(ra) # b66 <thread_add_runqueue>
     int i = 100;
  200:	06400593          	li	a1,100
     
@@ -266,7 +266,7 @@ void f1(void *arg)
     while(1) {
         printf("thread 1: %d\n", i++);
  204:	00001997          	auipc	s3,0x1
- 208:	cbc98993          	addi	s3,s3,-836 # ec0 <get_current_thread+0x6e>
+ 208:	cbc98993          	addi	s3,s3,-836 # ec0 <get_current_thread+0x70>
         if (i == 102) {
  20c:	06600913          	li	s2,102
             thread_kill(t2, 1);
@@ -282,31 +282,31 @@ void f1(void *arg)
  21c:	d10a8a93          	addi	s5,s5,-752 # f28 <g_t2>
                 printf("thread %d: resuming\n", g_t2->ID);             // Print "thread 1: resuming"
  220:	00001b97          	auipc	s7,0x1
- 224:	cb0b8b93          	addi	s7,s7,-848 # ed0 <get_current_thread+0x7e>
+ 224:	cb0b8b93          	addi	s7,s7,-848 # ed0 <get_current_thread+0x80>
  228:	a805                	j	258 <f1+0xaa>
             thread_kill(t2, 1);
  22a:	4585                	li	a1,1
  22c:	8566                	mv	a0,s9
  22e:	00001097          	auipc	ra,0x1
- 232:	bf2080e7          	jalr	-1038(ra) # e20 <thread_kill>
+ 232:	bf0080e7          	jalr	-1040(ra) # e1e <thread_kill>
         if (i == 110) {
  236:	a821                	j	24e <f1+0xa0>
             thread_kill(t3, 0);
  238:	4581                	li	a1,0
  23a:	8562                	mv	a0,s8
  23c:	00001097          	auipc	ra,0x1
- 240:	be4080e7          	jalr	-1052(ra) # e20 <thread_kill>
+ 240:	be2080e7          	jalr	-1054(ra) # e1e <thread_kill>
         if (i == 110) {
  244:	a029                	j	24e <f1+0xa0>
                 thread_resume(g_t2);  // Resume thread 1
             }
             thread_exit();
  246:	00001097          	auipc	ra,0x1
- 24a:	986080e7          	jalr	-1658(ra) # bcc <thread_exit>
+ 24a:	988080e7          	jalr	-1656(ra) # bce <thread_exit>
         }
         thread_yield();
  24e:	00001097          	auipc	ra,0x1
- 252:	b12080e7          	jalr	-1262(ra) # d60 <thread_yield>
+ 252:	b1e080e7          	jalr	-1250(ra) # d6c <thread_yield>
         printf("thread 1: %d\n", i++);
  256:	85a6                	mv	a1,s1
  258:	0015849b          	addiw	s1,a1,1
@@ -330,7 +330,7 @@ void f1(void *arg)
                 thread_resume(g_t2);  // Resume thread 1
  286:	000ab503          	ld	a0,0(s5)
  28a:	00001097          	auipc	ra,0x1
- 28e:	bb8080e7          	jalr	-1096(ra) # e42 <thread_resume>
+ 28e:	bb6080e7          	jalr	-1098(ra) # e40 <thread_resume>
  292:	bf55                	j	246 <f1+0x98>
 
 0000000000000294 <main>:
@@ -345,7 +345,7 @@ int main(int argc, char **argv)
  29a:	0800                	addi	s0,sp,16
     printf("mp1-part2-1\n");
  29c:	00001517          	auipc	a0,0x1
- 2a0:	c4c50513          	addi	a0,a0,-948 # ee8 <get_current_thread+0x96>
+ 2a0:	c4c50513          	addi	a0,a0,-948 # ee8 <get_current_thread+0x98>
  2a4:	00000097          	auipc	ra,0x0
  2a8:	632080e7          	jalr	1586(ra) # 8d6 <printf>
     struct thread *t1 = thread_create(f1, NULL);
@@ -356,13 +356,13 @@ int main(int argc, char **argv)
  2ba:	838080e7          	jalr	-1992(ra) # aee <thread_create>
     thread_add_runqueue(t1);
  2be:	00001097          	auipc	ra,0x1
- 2c2:	8a6080e7          	jalr	-1882(ra) # b64 <thread_add_runqueue>
+ 2c2:	8a8080e7          	jalr	-1880(ra) # b66 <thread_add_runqueue>
     thread_start_threading();
  2c6:	00001097          	auipc	ra,0x1
- 2ca:	afc080e7          	jalr	-1284(ra) # dc2 <thread_start_threading>
+ 2ca:	b08080e7          	jalr	-1272(ra) # dce <thread_start_threading>
     printf("\nexited\n");
  2ce:	00001517          	auipc	a0,0x1
- 2d2:	c2a50513          	addi	a0,a0,-982 # ef8 <get_current_thread+0xa6>
+ 2d2:	c2a50513          	addi	a0,a0,-982 # ef8 <get_current_thread+0xa8>
  2d6:	00000097          	auipc	ra,0x0
  2da:	600080e7          	jalr	1536(ra) # 8d6 <printf>
     exit(0);
@@ -1331,7 +1331,7 @@ vprintf(int fd, const char *fmt, va_list ap)
  84c:	bdf9                	j	72a <vprintf+0x60>
           s = "(null)";
  84e:	00000917          	auipc	s2,0x0
- 852:	6ba90913          	addi	s2,s2,1722 # f08 <get_current_thread+0xb6>
+ 852:	6ba90913          	addi	s2,s2,1722 # f08 <get_current_thread+0xb8>
         while(*s != 0){
  856:	02800593          	li	a1,40
  85a:	bff1                	j	836 <vprintf+0x16c>
@@ -1693,11 +1693,11 @@ malloc(uint nbytes)
  aec:	8082                	ret
 
 0000000000000aee <thread_create>:
-static struct thread* current_thread = NULL;
-static int id = 1;
-static jmp_buf env_st;
-//static jmp_buf env_tmp;
-
+// syntax: return_type (*pointer_name)(parameter_types);
+// explain: The thread_create() function takes a funciton pointer void (*f)(void *), 
+// explain: meaning that it accepts a function f that takes a void * argument and returns void
+// explain: (*f) declares f as a pointer to a function
+// explain: void * commonly used where function doesn't need to know what kind of data is handling
 struct thread *thread_create(void (*f)(void *), void *arg){
  aee:	7179                	addi	sp,sp,-48
  af0:	f406                	sd	ra,40(sp)
@@ -1713,14 +1713,15 @@ struct thread *thread_create(void (*f)(void *), void *arg){
  b04:	00000097          	auipc	ra,0x0
  b08:	e90080e7          	jalr	-368(ra) # 994 <malloc>
  b0c:	84aa                	mv	s1,a0
-    unsigned long new_stack_p;
-    unsigned long new_stack;
+    unsigned long new_stack_p;      // a ptr to keep track of the stack ptr
+    unsigned long new_stack;        // base address of the allocated stack
     new_stack = (unsigned long) malloc(sizeof(unsigned long)*0x100);
  b0e:	6505                	lui	a0,0x1
  b10:	80050513          	addi	a0,a0,-2048 # 800 <vprintf+0x136>
  b14:	00000097          	auipc	ra,0x0
  b18:	e80080e7          	jalr	-384(ra) # 994 <malloc>
     new_stack_p = new_stack +0x100*8-0x2*8;
+    // stores function ptr "f" and its argument "arg" inside the thread structure
     t->fp = f;
  b1c:	0134b023          	sd	s3,0(s1)
     t->arg = arg;
@@ -1732,471 +1733,481 @@ struct thread *thread_create(void (*f)(void *), void *arg){
  b2e:	08f4aa23          	sw	a5,148(s1)
     t->buf_set = 0;
  b32:	0804a823          	sw	zero,144(s1)
-    t->stack = (void*) new_stack;
+    t->stack = (void*) new_stack;       // points to the beginning of allocated stack memory for the thread.
  b36:	e888                	sd	a0,16(s1)
     new_stack_p = new_stack +0x100*8-0x2*8;
  b38:	7f050513          	addi	a0,a0,2032
-    t->stack_p = (void*) new_stack_p;
+    t->stack_p = (void*) new_stack_p;   // points to the current execution part of the thread.
  b3c:	ec88                	sd	a0,24(s1)
-    id++;
+    id++;                               // increments ID for the next thread
  b3e:	2785                	addiw	a5,a5,1
  b40:	c31c                	sw	a5,0(a4)
 
     // part 2
-    t->sig_handler[0] = NULL_FUNC;
+    t->suspended = -1;                  // indicating that the thread is not suspended
  b42:	57fd                	li	a5,-1
- b44:	f8dc                	sd	a5,176(s1)
+ b44:	0af4a423          	sw	a5,168(s1)
+    t->sig_handler[0] = NULL_FUNC;   
+ b48:	57fd                	li	a5,-1
+ b4a:	f8dc                	sd	a5,176(s1)
     t->sig_handler[1] = NULL_FUNC;
- b46:	fcdc                	sd	a5,184(s1)
-    t->signo = -1;
- b48:	0cf4a023          	sw	a5,192(s1)
+ b4c:	fcdc                	sd	a5,184(s1)
+    t->signo = -1;                      // no signal currently active
+ b4e:	0cf4a023          	sw	a5,192(s1)
     t->handler_buf_set = 0;
- b4c:	1204ac23          	sw	zero,312(s1)
-    t->suspended = 0; // Initialize suspended flag
- b50:	0a04a423          	sw	zero,168(s1)
-    return t;
+ b52:	1204ac23          	sw	zero,312(s1)
+    // printf("Thread %d created\n", t->ID);
+    return t;                           // return the pointer to the newly created thread
 }
- b54:	8526                	mv	a0,s1
- b56:	70a2                	ld	ra,40(sp)
- b58:	7402                	ld	s0,32(sp)
- b5a:	64e2                	ld	s1,24(sp)
- b5c:	6942                	ld	s2,16(sp)
- b5e:	69a2                	ld	s3,8(sp)
- b60:	6145                	addi	sp,sp,48
- b62:	8082                	ret
+ b56:	8526                	mv	a0,s1
+ b58:	70a2                	ld	ra,40(sp)
+ b5a:	7402                	ld	s0,32(sp)
+ b5c:	64e2                	ld	s1,24(sp)
+ b5e:	6942                	ld	s2,16(sp)
+ b60:	69a2                	ld	s3,8(sp)
+ b62:	6145                	addi	sp,sp,48
+ b64:	8082                	ret
 
-0000000000000b64 <thread_add_runqueue>:
+0000000000000b66 <thread_add_runqueue>:
+
 void thread_add_runqueue(struct thread *t){
- b64:	1141                	addi	sp,sp,-16
- b66:	e422                	sd	s0,8(sp)
- b68:	0800                	addi	s0,sp,16
-    if(current_thread == NULL){
- b6a:	00000797          	auipc	a5,0x0
- b6e:	3ce7b783          	ld	a5,974(a5) # f38 <current_thread>
- b72:	cf91                	beqz	a5,b8e <thread_add_runqueue+0x2a>
+ b66:	1141                	addi	sp,sp,-16
+ b68:	e422                	sd	s0,8(sp)
+ b6a:	0800                	addi	s0,sp,16
+    if(current_thread == NULL){                                 // case: adding the first thread to the runqueue
+ b6c:	00000797          	auipc	a5,0x0
+ b70:	3cc7b783          	ld	a5,972(a5) # f38 <current_thread>
+ b74:	cf91                	beqz	a5,b90 <thread_add_runqueue+0x2a>
+        current_thread = t;
         current_thread->next = current_thread;
         current_thread->previous = current_thread;
-    }
-    else{
-        // case: adding thread to existing queue
+    } else {                                                    // case: adding thread to runqueue with existing threads
+        // child thread t should inherit the signal handlers from the parent thread (current_thread)
         t->sig_handler[0] = current_thread->sig_handler[0];
- b74:	7bd8                	ld	a4,176(a5)
- b76:	f958                	sd	a4,176(a0)
+ b76:	7bd8                	ld	a4,176(a5)
+ b78:	f958                	sd	a4,176(a0)
         t->sig_handler[1] = current_thread->sig_handler[1];
- b78:	7fd8                	ld	a4,184(a5)
- b7a:	fd58                	sd	a4,184(a0)
+ b7a:	7fd8                	ld	a4,184(a5)
+ b7c:	fd58                	sd	a4,184(a0)
         
         // Insert into circular linked list
         current_thread->previous->next = t;
- b7c:	6fd8                	ld	a4,152(a5)
- b7e:	f348                	sd	a0,160(a4)
+ b7e:	6fd8                	ld	a4,152(a5)
+ b80:	f348                	sd	a0,160(a4)
         t->previous = current_thread->previous;
- b80:	6fd8                	ld	a4,152(a5)
- b82:	ed58                	sd	a4,152(a0)
+ b82:	6fd8                	ld	a4,152(a5)
+ b84:	ed58                	sd	a4,152(a0)
         t->next = current_thread;
- b84:	f15c                	sd	a5,160(a0)
+ b86:	f15c                	sd	a5,160(a0)
         current_thread->previous = t;
- b86:	efc8                	sd	a0,152(a5)
+ b88:	efc8                	sd	a0,152(a5)
     }
 }
- b88:	6422                	ld	s0,8(sp)
- b8a:	0141                	addi	sp,sp,16
- b8c:	8082                	ret
+ b8a:	6422                	ld	s0,8(sp)
+ b8c:	0141                	addi	sp,sp,16
+ b8e:	8082                	ret
         current_thread = t;
- b8e:	00000797          	auipc	a5,0x0
- b92:	3aa7b523          	sd	a0,938(a5) # f38 <current_thread>
+ b90:	00000797          	auipc	a5,0x0
+ b94:	3aa7b423          	sd	a0,936(a5) # f38 <current_thread>
         current_thread->next = current_thread;
- b96:	f148                	sd	a0,160(a0)
+ b98:	f148                	sd	a0,160(a0)
         current_thread->previous = current_thread;
- b98:	ed48                	sd	a0,152(a0)
- b9a:	b7fd                	j	b88 <thread_add_runqueue+0x24>
+ b9a:	ed48                	sd	a0,152(a0)
+ b9c:	b7fd                	j	b8a <thread_add_runqueue+0x24>
 
-0000000000000b9c <schedule>:
-        longjmp(t->env, 1);
+0000000000000b9e <schedule>:
+        thread_exit();
     }
-    
-    thread_exit();  // exit when the function is completed
 }
+
+// note: schedule will follow the rule of FIFO
 void schedule(void){
- b9c:	1141                	addi	sp,sp,-16
- b9e:	e422                	sd	s0,8(sp)
- ba0:	0800                	addi	s0,sp,16
-    // TODO
-    //printf("schedule\n");
+ b9e:	1141                	addi	sp,sp,-16
+ ba0:	e422                	sd	s0,8(sp)
+ ba2:	0800                	addi	s0,sp,16
+    // printf("Get into schedule and current thread is %d\n", current_thread->ID);
     current_thread = current_thread->next;
- ba2:	00000717          	auipc	a4,0x0
- ba6:	39670713          	addi	a4,a4,918 # f38 <current_thread>
- baa:	631c                	ld	a5,0(a4)
- bac:	73dc                	ld	a5,160(a5)
- bae:	e31c                	sd	a5,0(a4)
+ ba4:	00000717          	auipc	a4,0x0
+ ba8:	39470713          	addi	a4,a4,916 # f38 <current_thread>
+ bac:	631c                	ld	a5,0(a4)
+ bae:	73dc                	ld	a5,160(a5)
+ bb0:	e31c                	sd	a5,0(a4)
     
     // Skip suspended threads, if the thread is suspended, we kept moving to the next thread
     while (current_thread->suspended) {
- bb0:	0a87a703          	lw	a4,168(a5)
- bb4:	cb09                	beqz	a4,bc6 <schedule+0x2a>
+ bb2:	0a87a703          	lw	a4,168(a5)
+ bb6:	cb09                	beqz	a4,bc8 <schedule+0x2a>
         current_thread = current_thread->next;
- bb6:	73dc                	ld	a5,160(a5)
+ bb8:	73dc                	ld	a5,160(a5)
     while (current_thread->suspended) {
- bb8:	0a87a703          	lw	a4,168(a5)
- bbc:	ff6d                	bnez	a4,bb6 <schedule+0x1a>
- bbe:	00000717          	auipc	a4,0x0
- bc2:	36f73d23          	sd	a5,890(a4) # f38 <current_thread>
+ bba:	0a87a703          	lw	a4,168(a5)
+ bbe:	ff6d                	bnez	a4,bb8 <schedule+0x1a>
+ bc0:	00000717          	auipc	a4,0x0
+ bc4:	36f73c23          	sd	a5,888(a4) # f38 <current_thread>
     }
+    // printf("scheduled to thread %d\n", current_thread->ID);
 }
- bc6:	6422                	ld	s0,8(sp)
- bc8:	0141                	addi	sp,sp,16
- bca:	8082                	ret
+ bc8:	6422                	ld	s0,8(sp)
+ bca:	0141                	addi	sp,sp,16
+ bcc:	8082                	ret
 
-0000000000000bcc <thread_exit>:
-
-
-
+0000000000000bce <thread_exit>:
+// aim: 1. remove the calling thread from runqueue
+// aim: 2. free stack, struct thread
+// aim: 3. update current_thread with next to-be-executed thread in runqueue (schedule())
+// aim: 4. call dispatch
+// note: when the last thread exits, return to the main function
 void thread_exit(void){
- bcc:	1101                	addi	sp,sp,-32
- bce:	ec06                	sd	ra,24(sp)
- bd0:	e822                	sd	s0,16(sp)
- bd2:	e426                	sd	s1,8(sp)
- bd4:	1000                	addi	s0,sp,32
+ bce:	1101                	addi	sp,sp,-32
+ bd0:	ec06                	sd	ra,24(sp)
+ bd2:	e822                	sd	s0,16(sp)
+ bd4:	e426                	sd	s1,8(sp)
+ bd6:	1000                	addi	s0,sp,32
     if(current_thread->next != current_thread){         // case: has more than one thread in the runqueue
- bd6:	00000497          	auipc	s1,0x0
- bda:	3624b483          	ld	s1,866(s1) # f38 <current_thread>
- bde:	70dc                	ld	a5,160(s1)
- be0:	02f48d63          	beq	s1,a5,c1a <thread_exit+0x4e>
-        struct thread *curr = current_thread;
-        // Remove from circular list
+ bd8:	00000497          	auipc	s1,0x0
+ bdc:	3604b483          	ld	s1,864(s1) # f38 <current_thread>
+ be0:	70dc                	ld	a5,160(s1)
+ be2:	02f48d63          	beq	s1,a5,c1c <thread_exit+0x4e>
+        // Save current_thread to t since we'll need to modify current_thread in (1.), (3.), but we then need to free this original current_thread in (2.) 
+        struct thread *t = current_thread;
+        
+        // (1.) 
         current_thread->previous->next = current_thread->next;
- be4:	6cd8                	ld	a4,152(s1)
- be6:	f35c                	sd	a5,160(a4)
+ be6:	6cd8                	ld	a4,152(s1)
+ be8:	f35c                	sd	a5,160(a4)
         current_thread->next->previous = current_thread->previous;
- be8:	6cd8                	ld	a4,152(s1)
- bea:	efd8                	sd	a4,152(a5)
+ bea:	6cd8                	ld	a4,152(s1)
+ bec:	efd8                	sd	a4,152(a5)
+        
+        // (3.)
         schedule();
- bec:	00000097          	auipc	ra,0x0
- bf0:	fb0080e7          	jalr	-80(ra) # b9c <schedule>
-        free(curr->stack);
- bf4:	6888                	ld	a0,16(s1)
- bf6:	00000097          	auipc	ra,0x0
- bfa:	d16080e7          	jalr	-746(ra) # 90c <free>
-        free(curr);
- bfe:	8526                	mv	a0,s1
- c00:	00000097          	auipc	ra,0x0
- c04:	d0c080e7          	jalr	-756(ra) # 90c <free>
+ bee:	00000097          	auipc	ra,0x0
+ bf2:	fb0080e7          	jalr	-80(ra) # b9e <schedule>
+        
+        // (2.)
+        free(t->stack);
+ bf6:	6888                	ld	a0,16(s1)
+ bf8:	00000097          	auipc	ra,0x0
+ bfc:	d14080e7          	jalr	-748(ra) # 90c <free>
+        free(t);
+ c00:	8526                	mv	a0,s1
+ c02:	00000097          	auipc	ra,0x0
+ c06:	d0a080e7          	jalr	-758(ra) # 90c <free>
+        
+        // (4.)
         dispatch();
- c08:	00000097          	auipc	ra,0x0
- c0c:	040080e7          	jalr	64(ra) # c48 <dispatch>
-        // case: last thread in system
+ c0a:	00000097          	auipc	ra,0x0
+ c0e:	040080e7          	jalr	64(ra) # c4a <dispatch>
         free(current_thread->stack);
         free(current_thread);
-        longjmp(env_st,1);    // return to main function
+        // we return to main function via longjmp since the context of the main function is saved in env_st
+        longjmp(env_st,1);    
     }
 }
- c10:	60e2                	ld	ra,24(sp)
- c12:	6442                	ld	s0,16(sp)
- c14:	64a2                	ld	s1,8(sp)
- c16:	6105                	addi	sp,sp,32
- c18:	8082                	ret
+ c12:	60e2                	ld	ra,24(sp)
+ c14:	6442                	ld	s0,16(sp)
+ c16:	64a2                	ld	s1,8(sp)
+ c18:	6105                	addi	sp,sp,32
+ c1a:	8082                	ret
         free(current_thread->stack);
- c1a:	6888                	ld	a0,16(s1)
- c1c:	00000097          	auipc	ra,0x0
- c20:	cf0080e7          	jalr	-784(ra) # 90c <free>
+ c1c:	6888                	ld	a0,16(s1)
+ c1e:	00000097          	auipc	ra,0x0
+ c22:	cee080e7          	jalr	-786(ra) # 90c <free>
         free(current_thread);
- c24:	00000517          	auipc	a0,0x0
- c28:	31453503          	ld	a0,788(a0) # f38 <current_thread>
- c2c:	00000097          	auipc	ra,0x0
- c30:	ce0080e7          	jalr	-800(ra) # 90c <free>
-        longjmp(env_st,1);    // return to main function
- c34:	4585                	li	a1,1
- c36:	00000517          	auipc	a0,0x0
- c3a:	31a50513          	addi	a0,a0,794 # f50 <env_st>
- c3e:	00000097          	auipc	ra,0x0
- c42:	e72080e7          	jalr	-398(ra) # ab0 <longjmp>
+ c26:	00000517          	auipc	a0,0x0
+ c2a:	31253503          	ld	a0,786(a0) # f38 <current_thread>
+ c2e:	00000097          	auipc	ra,0x0
+ c32:	cde080e7          	jalr	-802(ra) # 90c <free>
+        longjmp(env_st,1);    
+ c36:	4585                	li	a1,1
+ c38:	00000517          	auipc	a0,0x0
+ c3c:	31850513          	addi	a0,a0,792 # f50 <env_st>
+ c40:	00000097          	auipc	ra,0x0
+ c44:	e70080e7          	jalr	-400(ra) # ab0 <longjmp>
 }
- c46:	b7e9                	j	c10 <thread_exit+0x44>
+ c48:	b7e9                	j	c12 <thread_exit+0x44>
 
-0000000000000c48 <dispatch>:
+0000000000000c4a <dispatch>:
 void dispatch(void){
- c48:	7179                	addi	sp,sp,-48
- c4a:	f406                	sd	ra,40(sp)
- c4c:	f022                	sd	s0,32(sp)
- c4e:	ec26                	sd	s1,24(sp)
- c50:	1800                	addi	s0,sp,48
-    struct thread *t = current_thread;
- c52:	00000717          	auipc	a4,0x0
- c56:	2e673703          	ld	a4,742(a4) # f38 <current_thread>
- c5a:	fce43c23          	sd	a4,-40(s0)
-    if (t->buf_set == 0) {       // case: first time setting the context (buf_set == 0)
- c5e:	09072783          	lw	a5,144(a4)
- c62:	e785                	bnez	a5,c8a <dispatch+0x42>
-        t->buf_set = 1;
- c64:	4785                	li	a5,1
- c66:	08f72823          	sw	a5,144(a4)
-        if (setjmp(t->env) == 0) {  // case: first time calling setjmp
- c6a:	02070513          	addi	a0,a4,32
- c6e:	00000097          	auipc	ra,0x0
- c72:	e0a080e7          	jalr	-502(ra) # a78 <setjmp>
- c76:	c141                	beqz	a0,cf6 <dispatch+0xae>
-            t->fp(t->arg);
- c78:	fd843703          	ld	a4,-40(s0)
- c7c:	631c                	ld	a5,0(a4)
- c7e:	6708                	ld	a0,8(a4)
- c80:	9782                	jalr	a5
-            thread_exit();
+ c4a:	1101                	addi	sp,sp,-32
+ c4c:	ec06                	sd	ra,24(sp)
+ c4e:	e822                	sd	s0,16(sp)
+ c50:	e426                	sd	s1,8(sp)
+ c52:	1000                	addi	s0,sp,32
+    if(current_thread->signo != -1){    // case: thread has pending signal
+ c54:	00000517          	auipc	a0,0x0
+ c58:	2e453503          	ld	a0,740(a0) # f38 <current_thread>
+ c5c:	0c052783          	lw	a5,192(a0)
+ c60:	577d                	li	a4,-1
+ c62:	08e78e63          	beq	a5,a4,cfe <dispatch+0xb4>
+        if(current_thread->sig_handler[current_thread->signo] != NULL_FUNC){
+ c66:	07d9                	addi	a5,a5,22
+ c68:	078e                	slli	a5,a5,0x3
+ c6a:	97aa                	add	a5,a5,a0
+ c6c:	6398                	ld	a4,0(a5)
+ c6e:	57fd                	li	a5,-1
+ c70:	08f70263          	beq	a4,a5,cf4 <dispatch+0xaa>
+            if(current_thread->handler_buf_set == 1){              // case: handler_buf_set == 1 indicating that the context has been saved in handler_env
+ c74:	13852703          	lw	a4,312(a0)
+ c78:	4785                	li	a5,1
+ c7a:	04f70163          	beq	a4,a5,cbc <dispatch+0x72>
+                if(setjmp(current_thread->handler_env) == 1){
+ c7e:	0c850513          	addi	a0,a0,200
  c82:	00000097          	auipc	ra,0x0
- c86:	f4a080e7          	jalr	-182(ra) # bcc <thread_exit>
-    if (t->signo != -1) {   // case: If a signal has been set
- c8a:	fd843683          	ld	a3,-40(s0)
- c8e:	0c06a783          	lw	a5,192(a3) # 10c0 <__BSS_END__+0x100>
- c92:	577d                	li	a4,-1
- c94:	0ae78c63          	beq	a5,a4,d4c <dispatch+0x104>
-        if (t->sig_handler[t->signo] != NULL_FUNC) {     // case: exists corresponding signal handler
- c98:	07d9                	addi	a5,a5,22
- c9a:	078e                	slli	a5,a5,0x3
- c9c:	97b6                	add	a5,a5,a3
- c9e:	6398                	ld	a4,0(a5)
- ca0:	57fd                	li	a5,-1
- ca2:	0af70063          	beq	a4,a5,d42 <dispatch+0xfa>
-            if (t->handler_buf_set == 1) {      // case: already set the context (handler_buf_set == 1)
- ca6:	1386a703          	lw	a4,312(a3)
- caa:	4785                	li	a5,1
- cac:	06f70163          	beq	a4,a5,d0e <dispatch+0xc6>
-                if (setjmp(t->handler_env) == 0) {  // case: first time calling setjmp  
- cb0:	fd843783          	ld	a5,-40(s0)
- cb4:	0c878513          	addi	a0,a5,200
- cb8:	00000097          	auipc	ra,0x0
- cbc:	dc0080e7          	jalr	-576(ra) # a78 <setjmp>
- cc0:	cd39                	beqz	a0,d1e <dispatch+0xd6>
-                    t->sig_handler[t->signo](t->signo);
- cc2:	fd843483          	ld	s1,-40(s0)
- cc6:	0c04a503          	lw	a0,192(s1)
- cca:	01650793          	addi	a5,a0,22
- cce:	078e                	slli	a5,a5,0x3
- cd0:	97a6                	add	a5,a5,s1
- cd2:	639c                	ld	a5,0(a5)
- cd4:	9782                	jalr	a5
-                    t->signo = -1;
- cd6:	57fd                	li	a5,-1
- cd8:	0cf4a023          	sw	a5,192(s1)
-                    dispatch();
- cdc:	00000097          	auipc	ra,0x0
- ce0:	f6c080e7          	jalr	-148(ra) # c48 <dispatch>
-    thread_exit();  // exit when the function is completed
- ce4:	00000097          	auipc	ra,0x0
- ce8:	ee8080e7          	jalr	-280(ra) # bcc <thread_exit>
-}
- cec:	70a2                	ld	ra,40(sp)
- cee:	7402                	ld	s0,32(sp)
- cf0:	64e2                	ld	s1,24(sp)
- cf2:	6145                	addi	sp,sp,48
- cf4:	8082                	ret
-            t->env->sp = (unsigned long) t->stack_p;
- cf6:	fd843703          	ld	a4,-40(s0)
- cfa:	6f1c                	ld	a5,24(a4)
- cfc:	e75c                	sd	a5,136(a4)
-            longjmp(t->env, 1);
- cfe:	4585                	li	a1,1
- d00:	02070513          	addi	a0,a4,32
- d04:	00000097          	auipc	ra,0x0
- d08:	dac080e7          	jalr	-596(ra) # ab0 <longjmp>
- d0c:	bfbd                	j	c8a <dispatch+0x42>
-                longjmp(t->handler_env, 1);
- d0e:	4585                	li	a1,1
- d10:	0c868513          	addi	a0,a3,200
- d14:	00000097          	auipc	ra,0x0
- d18:	d9c080e7          	jalr	-612(ra) # ab0 <longjmp>
- d1c:	b7e1                	j	ce4 <dispatch+0x9c>
-                    t->handler_buf_set = 1;
- d1e:	4785                	li	a5,1
- d20:	fd843703          	ld	a4,-40(s0)
- d24:	12f72c23          	sw	a5,312(a4)
-                    t->handler_env->sp = (unsigned long) t->stack_p - 50*8;
- d28:	6f1c                	ld	a5,24(a4)
- d2a:	e7078793          	addi	a5,a5,-400
- d2e:	12f73823          	sd	a5,304(a4)
-                    longjmp(t->handler_env, 1);
- d32:	4585                	li	a1,1
- d34:	0c870513          	addi	a0,a4,200
- d38:	00000097          	auipc	ra,0x0
- d3c:	d78080e7          	jalr	-648(ra) # ab0 <longjmp>
- d40:	b755                	j	ce4 <dispatch+0x9c>
+ c86:	df6080e7          	jalr	-522(ra) # a78 <setjmp>
+ c8a:	4785                	li	a5,1
+ c8c:	04f51063          	bne	a0,a5,ccc <dispatch+0x82>
+                    current_thread->sig_handler[current_thread->signo](current_thread->signo);      // execute the corresponding signal handler
+ c90:	00000497          	auipc	s1,0x0
+ c94:	2a848493          	addi	s1,s1,680 # f38 <current_thread>
+ c98:	609c                	ld	a5,0(s1)
+ c9a:	0c07a503          	lw	a0,192(a5)
+ c9e:	01650713          	addi	a4,a0,22
+ ca2:	070e                	slli	a4,a4,0x3
+ ca4:	97ba                	add	a5,a5,a4
+ ca6:	639c                	ld	a5,0(a5)
+ ca8:	9782                	jalr	a5
+                    current_thread->signo = -1;                                                     // reset the signo to -1
+ caa:	609c                	ld	a5,0(s1)
+ cac:	577d                	li	a4,-1
+ cae:	0ce7a023          	sw	a4,192(a5)
+                    dispatch();                                                                     // reenter dispatch() and goto line 118 (since signal has reset)
+ cb2:	00000097          	auipc	ra,0x0
+ cb6:	f98080e7          	jalr	-104(ra) # c4a <dispatch>
+ cba:	a89d                	j	d30 <dispatch+0xe6>
+                longjmp(current_thread->handler_env,1);
+ cbc:	4585                	li	a1,1
+ cbe:	0c850513          	addi	a0,a0,200
+ cc2:	00000097          	auipc	ra,0x0
+ cc6:	dee080e7          	jalr	-530(ra) # ab0 <longjmp>
+ cca:	a09d                	j	d30 <dispatch+0xe6>
+                    current_thread->handler_env->sp = (unsigned long) current_thread->stack_p-50*8;
+ ccc:	00000517          	auipc	a0,0x0
+ cd0:	26c53503          	ld	a0,620(a0) # f38 <current_thread>
+ cd4:	6d1c                	ld	a5,24(a0)
+ cd6:	e7078793          	addi	a5,a5,-400
+ cda:	12f53823          	sd	a5,304(a0)
+                    current_thread->handler_buf_set = 1;
+ cde:	4785                	li	a5,1
+ ce0:	12f52c23          	sw	a5,312(a0)
+                    longjmp(current_thread->handler_env,1);
+ ce4:	4585                	li	a1,1
+ ce6:	0c850513          	addi	a0,a0,200
+ cea:	00000097          	auipc	ra,0x0
+ cee:	dc6080e7          	jalr	-570(ra) # ab0 <longjmp>
+ cf2:	a83d                	j	d30 <dispatch+0xe6>
             thread_exit();
- d42:	00000097          	auipc	ra,0x0
- d46:	e8a080e7          	jalr	-374(ra) # bcc <thread_exit>
- d4a:	bf69                	j	ce4 <dispatch+0x9c>
-        longjmp(t->env, 1);
- d4c:	4585                	li	a1,1
- d4e:	fd843783          	ld	a5,-40(s0)
- d52:	02078513          	addi	a0,a5,32
- d56:	00000097          	auipc	ra,0x0
- d5a:	d5a080e7          	jalr	-678(ra) # ab0 <longjmp>
- d5e:	b759                	j	ce4 <dispatch+0x9c>
+ cf4:	00000097          	auipc	ra,0x0
+ cf8:	eda080e7          	jalr	-294(ra) # bce <thread_exit>
+ cfc:	a815                	j	d30 <dispatch+0xe6>
+        if(current_thread->buf_set == 1){           // case: has a saved context in env
+ cfe:	09052703          	lw	a4,144(a0)
+ d02:	4785                	li	a5,1
+ d04:	02f70b63          	beq	a4,a5,d3a <dispatch+0xf0>
+            if(setjmp(current_thread->env) == 1){ 
+ d08:	02050513          	addi	a0,a0,32
+ d0c:	00000097          	auipc	ra,0x0
+ d10:	d6c080e7          	jalr	-660(ra) # a78 <setjmp>
+ d14:	4785                	li	a5,1
+ d16:	02f51a63          	bne	a0,a5,d4a <dispatch+0x100>
+                current_thread->fp(current_thread->arg);
+ d1a:	00000797          	auipc	a5,0x0
+ d1e:	21e7b783          	ld	a5,542(a5) # f38 <current_thread>
+ d22:	6398                	ld	a4,0(a5)
+ d24:	6788                	ld	a0,8(a5)
+ d26:	9702                	jalr	a4
+        thread_exit();
+ d28:	00000097          	auipc	ra,0x0
+ d2c:	ea6080e7          	jalr	-346(ra) # bce <thread_exit>
+}
+ d30:	60e2                	ld	ra,24(sp)
+ d32:	6442                	ld	s0,16(sp)
+ d34:	64a2                	ld	s1,8(sp)
+ d36:	6105                	addi	sp,sp,32
+ d38:	8082                	ret
+            longjmp(current_thread->env,1);
+ d3a:	4585                	li	a1,1
+ d3c:	02050513          	addi	a0,a0,32
+ d40:	00000097          	auipc	ra,0x0
+ d44:	d70080e7          	jalr	-656(ra) # ab0 <longjmp>
+ d48:	b7c5                	j	d28 <dispatch+0xde>
+                current_thread->env->sp =(unsigned long) current_thread->stack_p;   // manually set sp of the current thread to stack_p
+ d4a:	00000517          	auipc	a0,0x0
+ d4e:	1ee53503          	ld	a0,494(a0) # f38 <current_thread>
+ d52:	6d1c                	ld	a5,24(a0)
+ d54:	e55c                	sd	a5,136(a0)
+                current_thread->buf_set = 1;                                        // set the buf_set to 1 to indicate that the buf has been set
+ d56:	4785                	li	a5,1
+ d58:	08f52823          	sw	a5,144(a0)
+                longjmp(current_thread->env,1);
+ d5c:	4585                	li	a1,1
+ d5e:	02050513          	addi	a0,a0,32
+ d62:	00000097          	auipc	ra,0x0
+ d66:	d4e080e7          	jalr	-690(ra) # ab0 <longjmp>
+ d6a:	bf7d                	j	d28 <dispatch+0xde>
 
-0000000000000d60 <thread_yield>:
+0000000000000d6c <thread_yield>:
 void thread_yield(void){
- d60:	1141                	addi	sp,sp,-16
- d62:	e406                	sd	ra,8(sp)
- d64:	e022                	sd	s0,0(sp)
- d66:	0800                	addi	s0,sp,16
-    if(current_thread->signo != -1){
- d68:	00000517          	auipc	a0,0x0
- d6c:	1d053503          	ld	a0,464(a0) # f38 <current_thread>
- d70:	0c052703          	lw	a4,192(a0)
- d74:	57fd                	li	a5,-1
- d76:	02f70663          	beq	a4,a5,da2 <thread_yield+0x42>
+ d6c:	1141                	addi	sp,sp,-16
+ d6e:	e406                	sd	ra,8(sp)
+ d70:	e022                	sd	s0,0(sp)
+ d72:	0800                	addi	s0,sp,16
+    if(current_thread->signo != -1){                        // case: thread has pending signal
+ d74:	00000517          	auipc	a0,0x0
+ d78:	1c453503          	ld	a0,452(a0) # f38 <current_thread>
+ d7c:	0c052703          	lw	a4,192(a0)
+ d80:	57fd                	li	a5,-1
+ d82:	02f70663          	beq	a4,a5,dae <thread_yield+0x42>
         if(setjmp(current_thread->handler_env) == NULL){
- d7a:	0c850513          	addi	a0,a0,200
- d7e:	00000097          	auipc	ra,0x0
- d82:	cfa080e7          	jalr	-774(ra) # a78 <setjmp>
- d86:	c509                	beqz	a0,d90 <thread_yield+0x30>
+ d86:	0c850513          	addi	a0,a0,200
+ d8a:	00000097          	auipc	ra,0x0
+ d8e:	cee080e7          	jalr	-786(ra) # a78 <setjmp>
+ d92:	c509                	beqz	a0,d9c <thread_yield+0x30>
 }
- d88:	60a2                	ld	ra,8(sp)
- d8a:	6402                	ld	s0,0(sp)
- d8c:	0141                	addi	sp,sp,16
- d8e:	8082                	ret
+ d94:	60a2                	ld	ra,8(sp)
+ d96:	6402                	ld	s0,0(sp)
+ d98:	0141                	addi	sp,sp,16
+ d9a:	8082                	ret
             schedule();
- d90:	00000097          	auipc	ra,0x0
- d94:	e0c080e7          	jalr	-500(ra) # b9c <schedule>
+ d9c:	00000097          	auipc	ra,0x0
+ da0:	e02080e7          	jalr	-510(ra) # b9e <schedule>
             dispatch();
- d98:	00000097          	auipc	ra,0x0
- d9c:	eb0080e7          	jalr	-336(ra) # c48 <dispatch>
- da0:	b7e5                	j	d88 <thread_yield+0x28>
+ da4:	00000097          	auipc	ra,0x0
+ da8:	ea6080e7          	jalr	-346(ra) # c4a <dispatch>
+ dac:	b7e5                	j	d94 <thread_yield+0x28>
         if(setjmp(current_thread->env) == NULL){
- da2:	02050513          	addi	a0,a0,32
- da6:	00000097          	auipc	ra,0x0
- daa:	cd2080e7          	jalr	-814(ra) # a78 <setjmp>
- dae:	fd69                	bnez	a0,d88 <thread_yield+0x28>
+ dae:	02050513          	addi	a0,a0,32
+ db2:	00000097          	auipc	ra,0x0
+ db6:	cc6080e7          	jalr	-826(ra) # a78 <setjmp>
+ dba:	fd69                	bnez	a0,d94 <thread_yield+0x28>
             schedule();
- db0:	00000097          	auipc	ra,0x0
- db4:	dec080e7          	jalr	-532(ra) # b9c <schedule>
+ dbc:	00000097          	auipc	ra,0x0
+ dc0:	de2080e7          	jalr	-542(ra) # b9e <schedule>
             dispatch();
- db8:	00000097          	auipc	ra,0x0
- dbc:	e90080e7          	jalr	-368(ra) # c48 <dispatch>
+ dc4:	00000097          	auipc	ra,0x0
+ dc8:	e86080e7          	jalr	-378(ra) # c4a <dispatch>
 }
- dc0:	b7e1                	j	d88 <thread_yield+0x28>
+ dcc:	b7e1                	j	d94 <thread_yield+0x28>
 
-0000000000000dc2 <thread_start_threading>:
-thread_exit() is called by the last thread, and the else condition is satisfied, 
-when longjmp(env_st, 1); is executed, we jump back to if (setjmp(env_st) == 0) in thread_start_threading(), 
-but now the condition is not satisfied
+0000000000000dce <thread_start_threading>:
+When there's only the last thread in the runqueue, and it called thread_exit(), longjmp(env_st, 1) would be executed, 
+we then jump back to check the condition if (setjmp(env_st) == 0) in thread_start_threading(), 
+but now the condition is not satisfied, so we would return as specified in the instruction.
 */
 
 void thread_start_threading(void){
- dc2:	1141                	addi	sp,sp,-16
- dc4:	e406                	sd	ra,8(sp)
- dc6:	e022                	sd	s0,0(sp)
- dc8:	0800                	addi	s0,sp,16
+ dce:	1141                	addi	sp,sp,-16
+ dd0:	e406                	sd	ra,8(sp)
+ dd2:	e022                	sd	s0,0(sp)
+ dd4:	0800                	addi	s0,sp,16
     if(setjmp(env_st) == 0){
- dca:	00000517          	auipc	a0,0x0
- dce:	18650513          	addi	a0,a0,390 # f50 <env_st>
- dd2:	00000097          	auipc	ra,0x0
- dd6:	ca6080e7          	jalr	-858(ra) # a78 <setjmp>
- dda:	c509                	beqz	a0,de4 <thread_start_threading+0x22>
+ dd6:	00000517          	auipc	a0,0x0
+ dda:	17a50513          	addi	a0,a0,378 # f50 <env_st>
+ dde:	00000097          	auipc	ra,0x0
+ de2:	c9a080e7          	jalr	-870(ra) # a78 <setjmp>
+ de6:	c509                	beqz	a0,df0 <thread_start_threading+0x22>
         schedule();
         dispatch();
+    } else {        // case: all threads have exited
+        return;
     }
-    else return;
 }
- ddc:	60a2                	ld	ra,8(sp)
- dde:	6402                	ld	s0,0(sp)
- de0:	0141                	addi	sp,sp,16
- de2:	8082                	ret
+ de8:	60a2                	ld	ra,8(sp)
+ dea:	6402                	ld	s0,0(sp)
+ dec:	0141                	addi	sp,sp,16
+ dee:	8082                	ret
         schedule();
- de4:	00000097          	auipc	ra,0x0
- de8:	db8080e7          	jalr	-584(ra) # b9c <schedule>
+ df0:	00000097          	auipc	ra,0x0
+ df4:	dae080e7          	jalr	-594(ra) # b9e <schedule>
         dispatch();
- dec:	00000097          	auipc	ra,0x0
- df0:	e5c080e7          	jalr	-420(ra) # c48 <dispatch>
- df4:	b7e5                	j	ddc <thread_start_threading+0x1a>
+ df8:	00000097          	auipc	ra,0x0
+ dfc:	e52080e7          	jalr	-430(ra) # c4a <dispatch>
+ e00:	b7e5                	j	de8 <thread_start_threading+0x1a>
 
-0000000000000df6 <thread_register_handler>:
-/*
+0000000000000e02 <thread_register_handler>:
 When a signal is raised by current_thread, we look up in the sig_handler array by the index "signo", 
 then executes the sig_handler function.
+
 If another signal handler has already been registered by the same signal, just replace it
 */
 void thread_register_handler(int signo, void (*handler)(int)){
- df6:	1141                	addi	sp,sp,-16
- df8:	e406                	sd	ra,8(sp)
- dfa:	e022                	sd	s0,0(sp)
- dfc:	0800                	addi	s0,sp,16
+ e02:	1141                	addi	sp,sp,-16
+ e04:	e422                	sd	s0,8(sp)
+ e06:	0800                	addi	s0,sp,16
     // Register signal handler for current thread
     current_thread->sig_handler[signo] = handler;
- dfe:	0559                	addi	a0,a0,22
- e00:	050e                	slli	a0,a0,0x3
- e02:	00000797          	auipc	a5,0x0
- e06:	1367b783          	ld	a5,310(a5) # f38 <current_thread>
- e0a:	953e                	add	a0,a0,a5
- e0c:	e10c                	sd	a1,0(a0)
-    sleep(3);
- e0e:	450d                	li	a0,3
- e10:	fffff097          	auipc	ra,0xfffff
- e14:	7de080e7          	jalr	2014(ra) # 5ee <sleep>
+ e08:	0559                	addi	a0,a0,22
+ e0a:	050e                	slli	a0,a0,0x3
+ e0c:	00000797          	auipc	a5,0x0
+ e10:	12c7b783          	ld	a5,300(a5) # f38 <current_thread>
+ e14:	953e                	add	a0,a0,a5
+ e16:	e10c                	sd	a1,0(a0)
 }
- e18:	60a2                	ld	ra,8(sp)
- e1a:	6402                	ld	s0,0(sp)
- e1c:	0141                	addi	sp,sp,16
- e1e:	8082                	ret
+ e18:	6422                	ld	s0,8(sp)
+ e1a:	0141                	addi	sp,sp,16
+ e1c:	8082                	ret
 
-0000000000000e20 <thread_kill>:
-> xv6.pdf p.77
-While a process can call thread_exit() to terminate itself, 
-sometimes one process wants to kill another process (ex: parent kills child),
-thread_kill() does not immediately terminates the victim process, but instead sets a flag (p->killed), marking it to be killed later
+0000000000000e1e <thread_kill>:
+---
+Our thread_kill() function would mark thraed t with signo, and then when t is resumed later:
+    - if t has corresponding handler for signo: execute handler first
+    - else: execute thread_exit()
 */
 void thread_kill(struct thread *t, int signo){
- e20:	1141                	addi	sp,sp,-16
- e22:	e422                	sd	s0,8(sp)
- e24:	0800                	addi	s0,sp,16
+ e1e:	1141                	addi	sp,sp,-16
+ e20:	e422                	sd	s0,8(sp)
+ e22:	0800                	addi	s0,sp,16
     // Set signal for specified thread
     t->signo = signo;
- e26:	0cb52023          	sw	a1,192(a0)
+ e24:	0cb52023          	sw	a1,192(a0)
 }
- e2a:	6422                	ld	s0,8(sp)
- e2c:	0141                	addi	sp,sp,16
- e2e:	8082                	ret
+ e28:	6422                	ld	s0,8(sp)
+ e2a:	0141                	addi	sp,sp,16
+ e2c:	8082                	ret
 
-0000000000000e30 <thread_suspend>:
+0000000000000e2e <thread_suspend>:
 
 current_thread is set to the next of the original current_thread (Thread B), 
 if Thread B is also suspended, the while loop would then move on checking Thread C
 */
 
 void thread_suspend(struct thread *t) {
- e30:	1141                	addi	sp,sp,-16
- e32:	e422                	sd	s0,8(sp)
- e34:	0800                	addi	s0,sp,16
+ e2e:	1141                	addi	sp,sp,-16
+ e30:	e422                	sd	s0,8(sp)
+ e32:	0800                	addi	s0,sp,16
     // Mark thread as suspended
    t->suspended = 1;
- e36:	4785                	li	a5,1
- e38:	0af52423          	sw	a5,168(a0)
+ e34:	4785                	li	a5,1
+ e36:	0af52423          	sw	a5,168(a0)
 }
- e3c:	6422                	ld	s0,8(sp)
- e3e:	0141                	addi	sp,sp,16
- e40:	8082                	ret
+ e3a:	6422                	ld	s0,8(sp)
+ e3c:	0141                	addi	sp,sp,16
+ e3e:	8082                	ret
 
-0000000000000e42 <thread_resume>:
+0000000000000e40 <thread_resume>:
 
 
 void thread_resume(struct thread *t) {
- e42:	1141                	addi	sp,sp,-16
- e44:	e422                	sd	s0,8(sp)
- e46:	0800                	addi	s0,sp,16
+ e40:	1141                	addi	sp,sp,-16
+ e42:	e422                	sd	s0,8(sp)
+ e44:	0800                	addi	s0,sp,16
     t->suspended = 0;
- e48:	0a052423          	sw	zero,168(a0)
+ e46:	0a052423          	sw	zero,168(a0)
 }
- e4c:	6422                	ld	s0,8(sp)
- e4e:	0141                	addi	sp,sp,16
- e50:	8082                	ret
+ e4a:	6422                	ld	s0,8(sp)
+ e4c:	0141                	addi	sp,sp,16
+ e4e:	8082                	ret
 
-0000000000000e52 <get_current_thread>:
+0000000000000e50 <get_current_thread>:
 
 struct thread* get_current_thread() {
- e52:	1141                	addi	sp,sp,-16
- e54:	e422                	sd	s0,8(sp)
- e56:	0800                	addi	s0,sp,16
-    // Return pointer to current thread
+ e50:	1141                	addi	sp,sp,-16
+ e52:	e422                	sd	s0,8(sp)
+ e54:	0800                	addi	s0,sp,16
+    // Return pointer to the current thread
     return current_thread;
- e58:	00000517          	auipc	a0,0x0
- e5c:	0e053503          	ld	a0,224(a0) # f38 <current_thread>
- e60:	6422                	ld	s0,8(sp)
- e62:	0141                	addi	sp,sp,16
- e64:	8082                	ret
+ e56:	00000517          	auipc	a0,0x0
+ e5a:	0e253503          	ld	a0,226(a0) # f38 <current_thread>
+ e5e:	6422                	ld	s0,8(sp)
+ e60:	0141                	addi	sp,sp,16
+ e62:	8082                	ret
