@@ -252,10 +252,6 @@ struct threads_sched_result schedule_dm(struct threads_sched_args args)
 // EDF with CBS comparation
 static int __edf_thread_cmp(struct thread *a, struct thread *b)
 {
-    // Hard real-time tasks have priority over soft real-time tasks
-    if (a->cbs.is_hard_rt && !b->cbs.is_hard_rt) return -1;
-    if (!a->cbs.is_hard_rt && b->cbs.is_hard_rt) return 1;
-    
     // Compare deadlines
     if (a->current_deadline < b->current_deadline) return -1;
     if (a->current_deadline > b->current_deadline) return 1;
@@ -272,15 +268,31 @@ struct threads_sched_result schedule_edf_cbs(struct threads_sched_args args)
 {
     struct threads_sched_result r;
     struct thread *t;
+    struct thread *selected = NULL;
 
-start_scheduling:    // Label to reevaluate scheduling decision after replenishing
-    // Reset the result structure each time we restart
+start_scheduling:  
     r.scheduled_thread_list_member = NULL;
     r.allocated_time = 0;
 
-    // 1. Notify the throttle task
+    // First check for any absolute deadline misses
+    struct thread *missed = __check_deadline_miss(args.run_queue, args.current_time);
+    if (missed) {
+        // When a deadline is missed, check if we need to replenish
+        if (args.current_time == missed->current_deadline) {
+            missed->current_deadline += missed->period;
+            missed->cbs.remaining_budget = missed->cbs.budget;
+            // After replenishment, restart scheduling to consider this thread
+            goto start_scheduling;
+        }
+        // If we've passed the deadline without replenishment, report violation
+        r.scheduled_thread_list_member = &missed->thread_list;
+        r.allocated_time = 0;
+        return r;
+    }
+
+    // Handle regular replenishment for throttled tasks (but only soft real-time threads would throttle)
     list_for_each_entry(t, args.run_queue, thread_list) {
-        if (t->cbs.remaining_budget <= 0 && t->remaining_time > 0 && 
+        if (t->cbs.remaining_budget <= 0 && t->remaining_time > 0 &&    // throttled
             args.current_time == t->current_deadline) {
             // replenish
             t->current_deadline += t->period;
@@ -288,30 +300,26 @@ start_scheduling:    // Label to reevaluate scheduling decision after replenishi
         }
     }
 
-    // 2. Check if there is any thread has missed its current deadline 
-    struct thread *missed = __check_deadline_miss(args.run_queue, args.current_time);
-    if (missed) {
-        r.scheduled_thread_list_member = &missed->thread_list;
-        r.allocated_time = 0;
-        return r;
-    }
-
-    // 3. Find the best thread according to EDF
-    struct thread *selected = NULL;
+    // Find the best thread according to EDF using __edf_thread_cmp
     list_for_each_entry(t, args.run_queue, thread_list) {
-        // skip finished or throttled threads
+        // Skip finished or throttled threads
         if (t->remaining_time <= 0 || 
             (t->cbs.remaining_budget <= 0 && t->remaining_time > 0 && 
              args.current_time < t->current_deadline))
             continue;
 
-        if (!selected || __edf_thread_cmp(t, selected) < 0)
+        if (!selected || __edf_thread_cmp(t, selected) < 0) {
             selected = t;
+        }
     }
 
-    // 4. If no valid thread is found, find the next release time
+    // Handle case when no thread is selected
     if (!selected) {
+        // Previous implementation for sleep timing
         int next_release = INT_MAX;
+        int next_deadline = INT_MAX;
+        
+        // Check for upcoming releases
         struct release_queue_entry *rqe = NULL;
         list_for_each_entry(rqe, args.release_queue, thread_list) {
             if (rqe->release_time > args.current_time && rqe->release_time < next_release) {
@@ -319,20 +327,31 @@ start_scheduling:    // Label to reevaluate scheduling decision after replenishi
             }
         }
         
-        if (next_release != INT_MAX) {
-            // Sleep until next release
+        // Also check for next deadline (for throttled threads)
+        list_for_each_entry(t, args.run_queue, thread_list) {
+            if (t->cbs.remaining_budget <= 0 && t->remaining_time > 0 &&
+                t->current_deadline > args.current_time && 
+                t->current_deadline < next_deadline) {
+                next_deadline = t->current_deadline;
+            }
+        }
+        
+        // Sleep until the earlier of next_release or next_deadline
+        int sleep_until = (next_release < next_deadline) ? next_release : next_deadline;
+        
+        if (sleep_until != INT_MAX) {
             r.scheduled_thread_list_member = args.run_queue;
-            r.allocated_time = next_release - args.current_time;
+            r.allocated_time = sleep_until - args.current_time;
         } else {
-            // No future releases
             r.scheduled_thread_list_member = NULL;
             r.allocated_time = 0;
         }
         return r;
     }
 
-    // 5. CBS admission control (for soft real-time tasks only)
+    // CBS admission control for soft real-time tasks
     if (!selected->cbs.is_hard_rt) {
+        // CBS admission control code
         int remaining_budget = selected->cbs.remaining_budget;
         int time_until_deadline = selected->current_deadline - args.current_time;
         int scaled_left = remaining_budget * selected->period;
@@ -342,37 +361,56 @@ start_scheduling:    // Label to reevaluate scheduling decision after replenishi
             // Replenish and restart scheduling decision
             selected->current_deadline = args.current_time + selected->period;
             selected->cbs.remaining_budget = selected->cbs.budget;
-            goto start_scheduling;  // Restart scheduling decision
+            goto start_scheduling;
         }
 
-        // Check again: if still throttled (no budget but has work)
-        if (selected->cbs.remaining_budget <= 0 && selected->remaining_time > 0) {
-            r.scheduled_thread_list_member = &selected->thread_list;
-            r.allocated_time = 0;
-            goto start_scheduling;  // Restart scheduling decision after throttling
+        // Check for next higher priority release
+        int max_alloc = selected->cbs.remaining_budget;
+        struct release_queue_entry *rqe = NULL;
+        
+        list_for_each_entry(rqe, args.release_queue, thread_list) {
+            if (rqe->release_time > args.current_time && 
+                rqe->release_time < args.current_time + max_alloc) {
+                
+                // Create a temporary thread to compare with
+                struct thread temp_thread = *(rqe->thrd);
+                // Set the deadline for this future thread
+                temp_thread.current_deadline = rqe->release_time + temp_thread.period;
+                
+                // Use __edf_thread_cmp to check if this future thread would have higher priority
+                if (__edf_thread_cmp(&temp_thread, selected) < 0) {
+                    int safe_time = rqe->release_time - args.current_time;
+                    if (safe_time < max_alloc) {
+                        max_alloc = safe_time;
+                    }
+                }
+            }
         }
 
-        // For soft real-time tasks, allocate time based on remaining CBS budget
         r.scheduled_thread_list_member = &selected->thread_list;
-        r.allocated_time = (selected->remaining_time < selected->cbs.remaining_budget) 
+        r.allocated_time = (selected->remaining_time < max_alloc) 
                           ? selected->remaining_time 
-                          : selected->cbs.remaining_budget;
+                          : max_alloc;
     } else {
         // For hard real-time tasks
-        // First check if any higher priority task will arrive before completion
         int max_alloc = selected->remaining_time;
         struct release_queue_entry *rqe = NULL;
         
         list_for_each_entry(rqe, args.release_queue, thread_list) {
-            struct thread *future = rqe->thrd;
-            if (future->arrival_time > args.current_time &&
-                future->arrival_time < args.current_time + max_alloc &&
-                __edf_thread_cmp(future, selected) < 0) {
+            if (rqe->release_time > args.current_time &&
+                rqe->release_time < args.current_time + max_alloc) {
                 
-                // A higher priority task will arrive, need to preempt
-                int safe_time = future->arrival_time - args.current_time;
-                if (safe_time < max_alloc) {
-                    max_alloc = safe_time;
+                // Create a temporary thread to compare with
+                struct thread temp_thread = *(rqe->thrd);
+                // Set the deadline for this future thread
+                temp_thread.current_deadline = rqe->release_time + temp_thread.period;
+                
+                // Use __edf_thread_cmp to check if this future thread would have higher priority
+                if (__edf_thread_cmp(&temp_thread, selected) < 0) {
+                    int safe_time = rqe->release_time - args.current_time;
+                    if (safe_time < max_alloc) {
+                        max_alloc = safe_time;
+                    }
                 }
             }
         }
