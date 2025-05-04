@@ -364,15 +364,27 @@ In the comments of the given code structure, we're told to:
 // TO DO
 ```
 
-- The first TODO is done in 1. in the code
+<!-- - The first TODO is done in 1. in the code
 - The next TODO is done in 2. in the code
 - The last TODO is done in 4. in the code 
-> Because we need to first loop through the run queue in 3. to find the selected thread.
+> Because we need to first loop through the run queue in 3. to find the selected thread. -->
+
+:warning: <ins>The following things are not stated in the spec, but is told by the TAs in the discussion section on NTUCool</ins>:
+
+- We should reselect the thread to execute after a thread has been replenished
+> Considering the case that when a soft real-time thread is selected, and it is throttled, after replenishment, its deadline might be later than other threads, so we need to reselect and find the earliest deadline, and if the newly selected thread is still soft, we need to recheck if it should be replenished again.
+- Even when there's only one thread in the system, when this thread has used up its budget and being throttled, we should let the system to be idle 
+> According to CBS regulations, we should only replenish when current time meet the thread's current deadline.
+- We do not need to consider budget for hard real-time threads
+- If we knew that a hard real-time thread could not be finished at its deadline, we shold allocate time until its deadline instead of not letting it to execute.
 
 ### Implementation
 
 
-We can check if a thread in the runqueue has missed its deadline by the following function `__check_deadline_miss`, which can also be found in `threads_sched.c`:
+
+### Fallible implementations
+
+We cannot check if a thread in the runqueue has missed its deadline by the following function `__check_deadline_miss` (which is also in `threads_sched.c`):
 
 ```C
 #if defined(THREAD_SCHEDULER_EDF_CBS) || defined(THREAD_SCHEDULER_DM)
@@ -393,4 +405,4 @@ static struct thread *__check_deadline_miss(struct list_head *run_queue, int cur
 #endif
 ```
 
-:warning: note that if multiple threads have missed their deadline, only the thread with the smallest ID would be returned.
+:x: Since if multiple threads have missed their deadline, only the thread with the smallest ID would be returned.

@@ -274,7 +274,7 @@ start_scheduling:
     r.scheduled_thread_list_member = NULL;
     r.allocated_time = 0;
 
-    // First check for any absolute deadline misses
+    // Check for deadline misses and replenish if needed
     struct thread *missed = __check_deadline_miss(args.run_queue, args.current_time);
     if (missed) {
         // When a deadline is missed, check if we need to replenish
@@ -282,6 +282,7 @@ start_scheduling:
             missed->current_deadline += missed->period;
             missed->cbs.remaining_budget = missed->cbs.budget;
             // After replenishment, restart scheduling to consider this thread
+            // printf("\nThe thread %d is replenished, restart scheduling\n", missed->ID);
             goto start_scheduling;
         }
         // If we've passed the deadline without replenishment, report violation
@@ -297,6 +298,8 @@ start_scheduling:
             // replenish
             t->current_deadline += t->period;
             t->cbs.remaining_budget = t->cbs.budget;
+
+            goto start_scheduling;
         }
     }
 
@@ -315,6 +318,7 @@ start_scheduling:
 
     // Handle case when no thread is selected
     if (!selected) {
+        // printf("\nNo thread is selected after iterating through the run_queue\n");
         // Previous implementation for sleep timing
         int next_release = INT_MAX;
         int next_deadline = INT_MAX;
@@ -351,6 +355,7 @@ start_scheduling:
 
     // CBS admission control for soft real-time tasks
     if (!selected->cbs.is_hard_rt) {
+        // printf("\nThe selected thread %d is a soft real-time thread\n", selected->ID);
         // CBS admission control code
         int remaining_budget = selected->cbs.remaining_budget;
         int time_until_deadline = selected->current_deadline - args.current_time;
@@ -392,14 +397,46 @@ start_scheduling:
                           ? selected->remaining_time 
                           : max_alloc;
     } else {
+        // printf("\nThe selected thread %d is a hard real-time thread\n", selected->ID);
         // For hard real-time tasks
         int max_alloc = selected->remaining_time;
         struct release_queue_entry *rqe = NULL;
         
+        /* 
+        printf("\n----- Current release queue at time %d -----\n", args.current_time);
+        if (list_empty(args.release_queue)) {
+            printf("Release queue is empty\n");
+        } else {
+            list_for_each_entry(rqe, args.release_queue, thread_list) {
+                printf("Thread #%d:\n", rqe->thrd->ID);
+                printf("  - Release time: %d\n", rqe->release_time);
+                printf("  - Period: %d\n", rqe->thrd->period);
+                printf("  - Processing time: %d\n", rqe->thrd->processing_time);
+                printf("  - Future deadline would be: %d\n", rqe->release_time + rqe->thrd->period);
+                printf("  - Hard real-time: %s\n", rqe->thrd->cbs.is_hard_rt ? "Yes" : "No");
+                printf("  - Budget: %d\n", rqe->thrd->cbs.budget);
+                
+                // Compare with currently selected thread if available
+                if (selected) {
+                    struct thread temp_thread = *(rqe->thrd);
+                    temp_thread.current_deadline = rqe->release_time + temp_thread.period;
+                    int comparison = __edf_thread_cmp(&temp_thread, selected);
+                    printf("  - Priority vs. selected thread #%d: %s (%d)\n", 
+                           selected->ID,
+                           comparison < 0 ? "HIGHER" : comparison > 0 ? "LOWER" : "SAME",
+                           comparison);
+                }
+                printf("\n");
+            }
+        }
+        */
+        
+        // Check for future releases that would have higher priority
         list_for_each_entry(rqe, args.release_queue, thread_list) {
             if (rqe->release_time > args.current_time &&
                 rqe->release_time < args.current_time + max_alloc) {
                 
+                // printf("Exists thread %d in release queue, with release time %d < current time %d + max_alloc %d\n", rqe->thrd->ID, rqe->release_time, args.current_time, max_alloc);
                 // Create a temporary thread to compare with
                 struct thread temp_thread = *(rqe->thrd);
                 // Set the deadline for this future thread
@@ -407,9 +444,41 @@ start_scheduling:
                 
                 // Use __edf_thread_cmp to check if this future thread would have higher priority
                 if (__edf_thread_cmp(&temp_thread, selected) < 0) {
+                    // printf("The future thread %d has higher priority than the selected thread %d\n", temp_thread.ID, selected->ID);
                     int safe_time = rqe->release_time - args.current_time;
                     if (safe_time < max_alloc) {
                         max_alloc = safe_time;
+                        // printf("Decrease max_alloc to %d\n", max_alloc);
+                    }
+                }
+            }
+        }
+
+        // Also check for deadline replenishment needs of existing threads
+        list_for_each_entry(t, args.run_queue, thread_list) {
+            // Skip the currently selected thread
+            if (t == selected)
+                continue;
+            
+            // Check if this thread will need a deadline replenishment before max_alloc
+            if (t->remaining_time > 0 && t->current_deadline > args.current_time && 
+                t->current_deadline < args.current_time + max_alloc) {
+                // printf("Thread #%d needs replenishment at time %d\n", t->ID, t->current_deadline);
+                
+                // Calculate what the new deadline would be after replenishment
+                int new_deadline = t->current_deadline + t->period;
+                
+                // Check if after replenishment, this thread would have higher priority
+                if (new_deadline < selected->current_deadline) {
+                    /* printf("After replenishment, thread #%d will have higher priority than selected thread #%d\n", 
+                           t->ID, selected->ID); */
+                    
+                    // Limit allocation to allow this thread to be replenished
+                    int time_to_replenishment = t->current_deadline - args.current_time;
+                    if (time_to_replenishment < max_alloc) {
+                        max_alloc = time_to_replenishment;
+                        /* printf("Limiting allocation to %d ticks to allow thread #%d to be replenished\n", 
+                              max_alloc, t->ID); */
                     }
                 }
             }
