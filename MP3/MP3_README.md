@@ -346,8 +346,6 @@ If holds:
 - given new CBS deadline (Current time + Period)
 - fill budget up again
 
-###  Workflow
-
 
 ### Given instructions 
 
@@ -369,6 +367,8 @@ In the comments of the given code structure, we're told to:
 - The last TODO is done in 4. in the code 
 > Because we need to first loop through the run queue in 3. to find the selected thread. -->
 
+### Important details
+
 :warning: <ins>The following things are not stated in the spec, but is told by the TAs in the discussion section on NTUCool</ins>:
 
 - We should reselect the thread to execute after a thread has been replenished
@@ -378,31 +378,9 @@ In the comments of the given code structure, we're told to:
 - We do not need to consider budget for hard real-time threads
 - If we knew that a hard real-time thread could not be finished at its deadline, we shold allocate time until its deadline instead of not letting it to execute.
 
-### Implementation
+
+### Debug
+
+![](README_img/EDF_rrtask5.png)
 
 
-
-### Fallible implementations
-
-We cannot check if a thread in the runqueue has missed its deadline by the following function `__check_deadline_miss` (which is also in `threads_sched.c`):
-
-```C
-#if defined(THREAD_SCHEDULER_EDF_CBS) || defined(THREAD_SCHEDULER_DM)
-static struct thread *__check_deadline_miss(struct list_head *run_queue, int current_time)
-{
-    struct thread *th = NULL;
-    struct thread *thread_missing_deadline = NULL;
-    list_for_each_entry(th, run_queue, thread_list) {
-        if (th->current_deadline <= current_time) {
-            if (thread_missing_deadline == NULL)
-                thread_missing_deadline = th;
-            else if (th->ID < thread_missing_deadline->ID)
-                thread_missing_deadline = th;
-        }
-    }
-    return thread_missing_deadline;
-}
-#endif
-```
-
-:x: Since if multiple threads have missed their deadline, only the thread with the smallest ID would be returned.
