@@ -11,10 +11,11 @@ You can freely use the contents in this repo, however, note that:
 
 So be careful not to directly hand in my incorrect version. For reference, my grades for each MP are as follows:
 
-- MP0: 90
-- MP1: 0
+- MP0: 90 / 100
+- MP1: 0 / 100
 > I think I got zero point because I handed it in in a rush, so it might be the case that the final version could not successfully compile, maybe some of the contents are still useful (I cannot guarantee, so be careful using it anyways :sob:)
-- MP2: 100
+- MP2: 100 / 140
+- MP3: 97 / 100
 
 ## How to use
 
