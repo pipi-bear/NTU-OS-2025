@@ -30,9 +30,8 @@ struct inode
     int valid;             // inode has been read from disk?
     short type;            // copy of disk inode
     short major;
-    short minor;
+    short minor;           // Minor device number (T_DEVICE only) OR permission (r=1, w=2, rw=3) when not a device
     short nlink;
-    short permission;      // File permission (r=1, w=2, rw=3)
     uint size;
     uint addrs[NDIRECT + 1];
 };

@@ -1,6 +1,7 @@
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
+#include "kernel/fcntl.h"
 #include "kernel/fs.h"
 
 char *fmtname(char *path)
@@ -18,7 +19,25 @@ char *fmtname(char *path)
         return p;
     memmove(buf, p, strlen(p));
     memset(buf + strlen(p), ' ', DIRSIZ - strlen(p));
+    buf[DIRSIZ] = '\0';  // Ensure null termination
     return buf;
+}
+
+// Format permissions as "rw", "r-", "-w", or "--"
+char* fmtmode(int minor)
+{
+    static char perm[3];
+    
+    // Check read permission (bit 0)
+    perm[0] = (minor & 0x1) ? 'r' : '-';
+    
+    // Check write permission (bit 1)
+    perm[1] = (minor & 0x2) ? 'w' : '-';
+    
+    // Null terminator
+    perm[2] = '\0';
+    
+    return perm;
 }
 
 /* TODO: Access Control & Symbolic Link */
@@ -28,51 +47,88 @@ void ls(char *path)
     int fd;
     struct dirent de;
     struct stat st;
-
-    if ((fd = open(path, 0)) < 0)
-    {
+    
+    // First use O_NOACCESS to get metadata without following symlinks
+    // This conforms to the spec: "O_NOACCESS will be used alone"
+    fd = open(path, O_NOACCESS);
+    if (fd < 0) {
         fprintf(2, "ls: cannot open %s\n", path);
         return;
     }
-
-    if (fstat(fd, &st) < 0)
-    {
+    
+    if (fstat(fd, &st) < 0) {
         fprintf(2, "ls: cannot stat %s\n", path);
         close(fd);
         return;
     }
-
-    switch (st.type)
-    {
-    case T_FILE:
-        printf("%s %d %d %l\n", fmtname(path), st.type, st.ino, st.size);
-        break;
-
-    case T_DIR:
-        if (strlen(path) + 1 + DIRSIZ + 1 > sizeof buf)
-        {
-            printf("ls: path too long\n");
-            break;
+    
+    // Display information from the O_NOACCESS fd
+    printf("%s %d %d %d %s\n", fmtname(path), st.type, st.ino, st.size, fmtmode(st.minor));
+    
+    // If it's a directory, we need to list its contents
+    if (st.type == T_DIR) {
+        // Close the O_NOACCESS fd
+        close(fd);
+        
+        // From the spec: "A directory will only be opened with either O_RDONLY or O_NOACCESS"
+        // For listing contents, we need O_RDONLY
+        fd = open(path, O_RDONLY);
+        if (fd < 0) {
+            // This will fail if the directory doesn't have read permission
+            fprintf(2, "ls: cannot open directory %s for reading\n", path);
+            return;
         }
+        
+        if (strlen(path) + 1 + DIRSIZ + 1 > sizeof buf) {
+            printf("ls: path too long\n");
+            close(fd);
+            return;
+        }
+        
         strcpy(buf, path);
         p = buf + strlen(buf);
         *p++ = '/';
-        while (read(fd, &de, sizeof(de)) == sizeof(de))
-        {
+        
+        while (read(fd, &de, sizeof(de)) == sizeof(de)) {
             if (de.inum == 0)
                 continue;
+            
             memmove(p, de.name, DIRSIZ);
             p[DIRSIZ] = 0;
-            if (stat(buf, &st) < 0)
-            {
-                printf("ls: cannot stat %s\n", buf);
+            
+            // Special handling for "." and ".."
+            if (strcmp(de.name, ".") == 0 || strcmp(de.name, "..") == 0) {
+                printf("%s %d %d %d %s\n", 
+                       fmtname(de.name), 
+                       T_DIR,
+                       de.inum,
+                       st.size,
+                       fmtmode(st.minor));
                 continue;
             }
-            printf("%s %d %d %d\n", fmtname(buf), st.type, st.ino, st.size);
+            
+            // Per spec: O_NOACCESS will be used alone
+            int entry_fd = open(buf, O_NOACCESS);
+            if (entry_fd < 0)
+                continue;
+                
+            struct stat entry_st;
+            if (fstat(entry_fd, &entry_st) < 0) {
+                close(entry_fd);
+                continue;
+            }
+            
+            printf("%s %d %d %d %s\n", 
+                   fmtname(de.name), 
+                   entry_st.type, 
+                   entry_st.ino, 
+                   entry_st.size, 
+                   fmtmode(entry_st.minor));
+                   
+            close(entry_fd);
         }
-        break;
     }
-
+    
     close(fd);
 }
 
@@ -80,12 +136,13 @@ int main(int argc, char *argv[])
 {
     int i;
 
-    if (argc < 2)
-    {
+    if (argc < 2) {
         ls(".");
         exit(0);
     }
+    
     for (i = 1; i < argc; i++)
         ls(argv[i]);
+        
     exit(0);
 }

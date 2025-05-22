@@ -14,5 +14,6 @@ struct stat
     uint ino;    // Inode number
     short type;  // Type of file
     short nlink; // Number of links to file
+    short minor; // Minor device number OR permissions when type != T_DEVICE
     uint64 size; // Size of file in bytes
 };

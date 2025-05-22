@@ -127,6 +127,7 @@ UPROGS=\
 	$U/_zombie\
 	$U/_count\
 	$U/_symln\
+	$U/_chmod\
 	$U/_gen\
 	$U/_mp4_1\
 	$U/_mp4_2_forcetest\

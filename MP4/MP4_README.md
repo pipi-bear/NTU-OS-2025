@@ -328,6 +328,7 @@ For this function, multiple places should be modified, the modified files and th
     - `sys_fstat()`
     - `sys_chmod()`
     - `sys_open()`
+    - `sys_get_disk_lbn()`
 - `kernel/fs.h`
     - `struct dinode`
 - `kernel/fs.c`
@@ -339,11 +340,49 @@ For this function, multiple places should be modified, the modified files and th
 - `kernel/syscall.c`
 - `user/usys.pl`
 - `user/user.h`
+- `user/chmod.c`
+
+:exclamation: Note that we're asked to manually create a file `user/chmod.c` and modify `Makefile`. 
 
 For the things that are modified in each function / structure, check the following subsections.
 
-## Add inode field: permission
 
+## IMPORTANT MODIFICATION
+:bangbang: The following contents in the subsections are the original thought of mine, which would cause the following error!
+
+![](./README_images/inode_size_issue.png)
+
+This happens because originally I added a new field to the `inode` and `dinode` structure, and this would change the size, which is not allowed. 
+
+According to the hint in the spec:
+
+![](./README_images/hint_inode_size.png)
+
+we should replace some field in the inode in order to make the size of inode unchanged.
+
+Therefore, my approach is to <ins>modify the `minor` field, so that `minor` preserves its original use only when `type == T_DEVICE`, otherwise, we use `minor` to represent permission.</ins>
+
+As in `kernel/sysfile.c`, we would have:
+
+```C
+static struct inode *create(char *path, short type, short major, short minor)
+{
+    // Set minor appropriately:
+    // - For device files: use the provided minor number
+    // - For all other types (T_FILE, T_DIR, T_SYMLINK): use minor for permission (rw=0x3)
+    if (type == T_DEVICE) {
+        ip->minor = minor;  // Keep original minor for devices
+    } else {
+        ip->minor = 0x3;    // Default permission: rw for all non-device files
+    }
+}
+```
+
+So in the following subsections, you can still check where to modify, but the contents should be replaced by using `minor`.
+
+> Check the corresponding files for actual content!
+
+## Add inode field: permission
 
 - This is also notified in the above `create()` subsection.
 
@@ -433,10 +472,48 @@ For the functions:
 1. `sys_read()`
 2. `syswrite()`
 3. `sys_fstat()`
+4. `sys_get_disk_lbn()`
 
 in `kernel/sysfile.c`, we should add permission check before executing them.
 
-The permission check would be read, write, read permission check for the 3 functions.
+### sys_get_disk_lbn
+
+Note that in this function, the modified part is:
+
+```C
+if (!(f->ip->permission & 0x1)) // no read permission
+    return -1;
+```
+
+Note that we need to access the inode of the file, since "permission" is a field of the inode structure, but not in the file descriptor, so `f->permission` would trigger error.
+
+The `file` and `inode` structure are as follows:
+
+```C
+struct file {
+    enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
+    int ref;
+    char readable;
+    char writable;
+    struct pipe *pipe;
+    struct inode *ip;  // <- This points to the inode
+    uint off;
+    short major;
+};
+
+struct inode {
+    // ... other fields ...
+    short type;
+    short major;
+    short minor;
+    short nlink;
+    uint size;
+    uint permission;  // <- access permission field we added here
+    // ... other fields ...
+};
+```
+
+Thus, we first access `file->ip`, then use the inode `ip` to get the permission info.
 
 ## Uncomment system call number
 
@@ -494,6 +571,43 @@ if (argstr(0, path, MAXPATH) < 0 || argint(1, &mode) < 0)
 The following image explains why we have this line like this intuitively:
 
 ![](./README_images/chmod_argstr.png)
+
+## chmod.c
+
+### printf / fprintf
+
+We use:
+
+```C
+fprintf(2, "Usage: chmod [-R] (+|-) (r|w|rw|wr) file_name|dir_name\n");
+```
+
+instead of:
+
+```C
+printf(2, "Usage: chmod [-R] (+|-) (r|w|rw|wr) file_name|dir_name\n");
+```
+
+because of the following reason:
+
+![](./README_images/fprintf.png)
+
+### which chmod
+
+In the last part of `chmod.c`, we have:
+
+```C
+if (chmod(argv[2], mode) < 0) {
+    fprintf(2, "chmod: cannot chmod %s\n", argv[2]);
+    exit(1);
+}
+```
+
+here's a `chmod()` function in the first line, but our file is also called `chmod.c`, then why would the compiler knew that it is not calling the current file itself?
+
+The following is the detailed explanation:
+
+![](./README_images/which_chmod.png)
 
 # sys_open
 
@@ -654,3 +768,17 @@ Manually add the following line:
 ```
 
 - Note: I put comments explaining the meanings of the flags, check `fcntl.h` if needed.
+
+## Modify Makefile
+
+Add this line `$U/_chmod\` under `UPROGS`:
+
+```C
+UPROGS=\
+	$U/_chmod\
+```
+
+# ls
+
+`user/ls.c` is modified.
+

@@ -34,8 +34,8 @@ struct dinode
     short type;              // File type
     short major;             // Major device number (T_DEVICE only)
     short minor;             // Minor device number (T_DEVICE only)
+                             // OR Permission (r=1, w=2, rw=3) when type != T_DEVICE
     short nlink;             // Number of links to inode in file system
-    short permission;        // File permission (r=1, w=2, rw=3)
     uint size;               // Size of file (bytes)
     uint addrs[NDIRECT + 1]; // Data block addresses
 };

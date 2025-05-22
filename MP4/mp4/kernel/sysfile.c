@@ -74,7 +74,7 @@ uint64 sys_read(void)
 
     if (argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argaddr(1, &p) < 0)
         return -1;
-    if (!(f->ip->permission & 0x1)) // no read permission
+    if (!(f->ip->minor & 0x1) && f->ip->type != T_DEVICE) // no read permission, if not a device
         return -1;
     return fileread(f, p, n);
 }
@@ -87,7 +87,7 @@ uint64 sys_write(void)
 
     if (argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argaddr(1, &p) < 0)
         return -1;
-    if (!(f->ip->permission & 0x2)) // no write permission
+    if (!(f->ip->minor & 0x2) && f->ip->type != T_DEVICE) // no write permission, if not a device
         return -1;
     return filewrite(f, p, n);
 }
@@ -111,7 +111,7 @@ uint64 sys_fstat(void)
 
     if (argfd(0, 0, &f) < 0 || argaddr(1, &st) < 0)
         return -1;
-    if (!(f->ip->permission & 0x1)) // no read permission
+    if (!(f->ip->minor & 0x1) && f->ip->type != T_DEVICE) // no read permission, if not a device
         return -1;
     return filestat(f, st);
 }
@@ -268,9 +268,17 @@ static struct inode *create(char *path, short type, short major, short minor)
 
     ilock(ip);
     ip->major = major;
-    ip->minor = minor;
+    
+    // Set minor appropriately:
+    // - For device files: use the provided minor number
+    // - For all other types (T_FILE, T_DIR, T_SYMLINK): use minor for permission (rw=0x3)
+    if (type == T_DEVICE) {
+        ip->minor = minor;  // Keep original minor for devices
+    } else {
+        ip->minor = 0x3;    // Default permission: rw for all non-device files
+    }
+    
     ip->nlink = 1;
-    ip->permission = 0x3; // default: rw
     iupdate(ip);
 
     if (type == T_DIR)
@@ -561,8 +569,39 @@ uint64 sys_chmod(void)
 
     ilock(ip);
 
+    // Follow symbolic links
+    int max_links = 10; // Prevent infinite loops
+    while (ip->type == T_SYMLINK && max_links-- > 0) {
+        char target[MAXPATH];
+        
+        // Read the target path from the symlink
+        if (readi(ip, 0, (uint64)target, 0, MAXPATH) < 0) {
+            iunlockput(ip);
+            end_op();
+            return -1;
+        }
+        target[MAXPATH-1] = '\0'; // Ensure null-termination
+        
+        // Release the current inode and follow the link
+        iunlockput(ip);
+        
+        if ((ip = namei(target)) == 0) {
+            end_op();
+            return -1;
+        }
+        ilock(ip);
+    }
+    
+    // Check if we've followed too many links
+    if (max_links < 0) {
+        iunlockput(ip);
+        end_op();
+        return -1;
+    }
+
     // Set the permission (only lower 2 bits: r=1, w=2, rw=3)
-    ip->permission = mode & 0x3;
+    // Store in minor field for non-device files
+    ip->minor = mode & 0x3;
     iupdate(ip);
 
     iunlockput(ip);
@@ -657,7 +696,7 @@ uint64 sys_get_disk_lbn(void)
         return -1;
     }
 
-    if (!(f->permission & 0x1)) // no read permission
+    if (!(f->ip->minor & 0x1) && f->ip->type != T_DEVICE) // no read permission, if not a device
         return -1;
 
     struct inode *ip = f->ip;
