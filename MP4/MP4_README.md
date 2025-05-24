@@ -3,6 +3,10 @@
 - Finish implementation of the `chmod` function in `user/chmod.c`
 - Check if the mode setting is correct, need to recheck the second and third part in 3.4. Guidance
 
+# Key values used in problem 1
+
+![](./README_images/key_values.png)
+
 # sys_symlink
 
 In `kernel/sysfile.c`
@@ -611,130 +615,25 @@ The following is the detailed explanation:
 
 # sys_open
 
-The following code is the function `sys_open()` in `sysfile.c`, and some comments are added to enhance understanding. But before checking the code, the following images are the intuitive explanation of this function, which I found really useful:
+- `sys_open()` is in `sysfile.c`
+
+> Originally I put the code of the function here, but since there are too many modifications, in the later versions, I added and modified the function in `sysfile.c` directly, so just check that file for full contents instead.
+>
+> I would only record some of the questions of mine, and explain part of the meanings behind the code.
+
+
+
+## Meaning of the sys_open function
+
+Before checking the code, the following images are the intuitive explanation of this function, which I found really useful:
 
 ![](./README_images/sys_open_1.png)
 
 ![](./README_images/sys_open_2.png)
 
 
-```C
-/* TODO: Access Control & Symbolic Link */
-uint64 sys_open(void)
-{
-    char path[MAXPATH];     // the file path to open
-    int fd, omode;          // omode: open mode flag (for example: O_NOFOLLOW, O_RDONLY)
-    struct file *f;
-    struct inode *ip;
-    int n;
-
-    if ((n = argstr(0, path, MAXPATH)) < 0 || argint(1, &omode) < 0)
-        return -1;
-
-    begin_op();     // start atomic mode
-
-    // If O_CREATE is set
-    if (omode & O_CREATE)
-    {
-        ip = create(path, T_FILE, 0, 0);    // create the file
-        if (ip == 0)                        // if creation failed
-        {
-            end_op();                       // stop atomic operation
-            return -1;                  
-        }
-    }
-    else
-    {
-        // Look up the inode for the path.
-        // note: definition of namei shown in the next code snippet below
-        if ((ip = namei(path)) == 0)    // If not found
-        {
-            end_op();
-            return -1;
-        }
-        ilock(ip);                      // lock the inode for safe access
-
-        // Handle symbolic links (follow up to 10 links in a chain)
-        int max_links = 10;g
-        // If the inode is a symlink and the flag O_NOFOLLOW is not set, follow the link
-        while (ip->type == T_SYMLINK && !(omode & O_NOFOLLOW) && max_links-- > 0) {
-            char target[MAXPATH];
-            // Read the target path from the symlink
-            if (readi(ip, 0, (uint64)target, 0, MAXPATH) < 0) {
-                iunlockput(ip);
-                end_op();
-                return -1;
-            }
-            target[MAXPATH-1] = '\0'; // Ensure null-termination
-            
-            // Release the current inode and follow the link
-            iunlockput(ip);
-            
-            if ((ip = namei(target)) == 0) {
-                end_op();
-                return -1;
-            }
-            ilock(ip);
-        }
-        
-        // Check if we've followed too many links
-        if (max_links < 0) {
-            iunlockput(ip);
-            end_op();
-            return -1;
-        }
-
-        // Directories are read only
-        if (ip->type == T_DIR && omode != O_RDONLY)
-        {
-            iunlockput(ip);
-            end_op();
-            return -1;
-        }
-    }
-
-    if (ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV))
-    {
-        iunlockput(ip);
-        end_op();
-        return -1;
-    }
-
-    if ((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0)
-    {
-        if (f)
-            fileclose(f);
-        iunlockput(ip);
-        end_op();
-        return -1;
-    }
-
-    if (ip->type == T_DEVICE)
-    {
-        f->type = FD_DEVICE;
-        f->major = ip->major;
-    }
-    else
-    {
-        f->type = FD_INODE;
-        f->off = 0;
-    }
-    f->ip = ip;
-    f->readable = !(omode & O_WRONLY);
-    f->writable = (omode & O_WRONLY) || (omode & O_RDWR);
-
-    if ((omode & O_TRUNC) && ip->type == T_FILE)
-    {
-        itrunc(ip);
-    }
-
-    iunlock(ip);
-    end_op();
-
-    return fd;
-}
-```
-
+## Explanation / definition of things in sys_open
+### namex / namei 
 
 ```C
 // Look up and return the inode for a path name.
@@ -754,6 +653,21 @@ struct inode *namei(char *path)
 ```
 
 > In `kernel/fs.c`
+
+### Device files
+
+The following part of code in `sys_file.c` uses the field `major`, and what this means is shown in the image below.
+
+```C
+if (ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV))
+{
+    iunlockput(ip);
+    end_op();
+    return -1;
+}
+```
+
+![](./README_images/major_minor.png)
 
 ## Add flag
 
@@ -781,4 +695,11 @@ UPROGS=\
 # ls
 
 `user/ls.c` is modified.
+
+1. Use `O_NOACCESS` to get metadata without following symlinks
+2. Reopen with `O_RDONLY` to list contents 
+
+> because `O_NOACCESS` doesn't provide read access
+
+3. Each file within a directory is also opened with `O_NOACCESS` to get its accurate metadata
 

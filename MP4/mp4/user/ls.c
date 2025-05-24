@@ -47,30 +47,37 @@ void ls(char *path)
     int fd;
     struct dirent de;
     struct stat st;
-    
-    // First use O_NOACCESS to get metadata without following symlinks
-    // This conforms to the spec: "O_NOACCESS will be used alone"
-    fd = open(path, O_NOACCESS);
-    if (fd < 0) {
+
+    if ((fd = open(path, O_NOACCESS)) < 0)
+    {
         fprintf(2, "ls: cannot open %s\n", path);
         return;
     }
-    
-    if (fstat(fd, &st) < 0) {
+
+    if (fstat(fd, &st) < 0)
+    {
         fprintf(2, "ls: cannot stat %s\n", path);
         close(fd);
         return;
     }
     
-    // Display information from the O_NOACCESS fd
-    printf("%s %d %d %d %s\n", fmtname(path), st.type, st.ino, st.size, fmtmode(st.minor));
-    
-    // If it's a directory, we need to list its contents
-    if (st.type == T_DIR) {
-        // Close the O_NOACCESS fd
+    switch (st.type)
+    {
+    case T_FILE:
+        printf("%s %d %d %d %s\n", fmtname(path), st.type, st.ino, st.size, fmtmode(st.minor));
+        break;
+    case T_SYMLINK:
+        printf("%s %d %d %d %s\n", fmtname(path), st.type, st.ino, st.size, fmtmode(st.minor));
+        break;
+
+    case T_DIR:
+        // First print directory info from O_NOACCESS fd
+        printf("%s %d %d %d %s\n", fmtname(path), st.type, st.ino, st.size, fmtmode(st.minor));
+        
+        // Close the O_NOACCESS fd 
         close(fd);
         
-        // From the spec: "A directory will only be opened with either O_RDONLY or O_NOACCESS"
+        // From the spec: "A directory, or a symbolic link to a directory, will only be opened with either O_RDONLY or O_NOACCESS"
         // For listing contents, we need O_RDONLY
         fd = open(path, O_RDONLY);
         if (fd < 0) {
@@ -79,7 +86,8 @@ void ls(char *path)
             return;
         }
         
-        if (strlen(path) + 1 + DIRSIZ + 1 > sizeof buf) {
+        if (strlen(path) + 1 + DIRSIZ + 1 > sizeof buf)
+        {
             printf("ls: path too long\n");
             close(fd);
             return;
@@ -88,26 +96,27 @@ void ls(char *path)
         strcpy(buf, path);
         p = buf + strlen(buf);
         *p++ = '/';
-        
-        while (read(fd, &de, sizeof(de)) == sizeof(de)) {
+        while (read(fd, &de, sizeof(de)) == sizeof(de))
+        {
             if (de.inum == 0)
                 continue;
             
             memmove(p, de.name, DIRSIZ);
             p[DIRSIZ] = 0;
             
-            // Special handling for "." and ".."
-            if (strcmp(de.name, ".") == 0 || strcmp(de.name, "..") == 0) {
+            // Special handling for "." and ".." to avoid stat errors
+            if(strcmp(de.name, ".") == 0 || strcmp(de.name, "..") == 0) {
+                // For "." and "..", just print them directly with the inode information
                 printf("%s %d %d %d %s\n", 
                        fmtname(de.name), 
-                       T_DIR,
-                       de.inum,
-                       st.size,
-                       fmtmode(st.minor));
+                       T_DIR,           // Type is always directory for . and ..
+                       de.inum,         // Use the inode number from dirent
+                       st.size,         // Size from parent directory's stat
+                       fmtmode(st.minor)); // Permissions from parent directory
                 continue;
             }
             
-            // Per spec: O_NOACCESS will be used alone
+            // Use O_NOACCESS alone for each entry per spec
             int entry_fd = open(buf, O_NOACCESS);
             if (entry_fd < 0)
                 continue;
@@ -127,6 +136,7 @@ void ls(char *path)
                    
             close(entry_fd);
         }
+        break;
     }
     
     close(fd);
@@ -136,7 +146,8 @@ int main(int argc, char *argv[])
 {
     int i;
 
-    if (argc < 2) {
+    if (argc < 2)
+    {
         ls(".");
         exit(0);
     }
