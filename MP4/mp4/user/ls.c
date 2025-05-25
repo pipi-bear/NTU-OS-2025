@@ -56,8 +56,8 @@ void ls(char *path)
 
     if (fstat(fd, &st) < 0)
     {
-        fprintf(2, "ls: cannot stat %s\n", path);
         close(fd);
+        fprintf(2, "ls: cannot open %s\n", path);
         return;
     }
     
@@ -71,10 +71,8 @@ void ls(char *path)
         break;
 
     case T_DIR:
-        // First print directory info from O_NOACCESS fd
-        printf("%s %d %d %d %s\n", fmtname(path), st.type, st.ino, st.size, fmtmode(st.minor));
         
-        // Close the O_NOACCESS fd 
+        // Close the O_NOACCESS fd and reopen with O_RDONLY for reading contents
         close(fd);
         
         // From the spec: "A directory, or a symbolic link to a directory, will only be opened with either O_RDONLY or O_NOACCESS"
@@ -83,13 +81,6 @@ void ls(char *path)
         if (fd < 0) {
             // This will fail if the directory doesn't have read permission
             fprintf(2, "ls: cannot open directory %s for reading\n", path);
-            return;
-        }
-        
-        if (strlen(path) + 1 + DIRSIZ + 1 > sizeof buf)
-        {
-            printf("ls: path too long\n");
-            close(fd);
             return;
         }
         
@@ -105,8 +96,17 @@ void ls(char *path)
             p[DIRSIZ] = 0;
             
             // Special handling for "." and ".." to avoid stat errors
-            if(strcmp(de.name, ".") == 0 || strcmp(de.name, "..") == 0) {
-                // For "." and "..", just print them directly with the inode information
+            if(strcmp(de.name, ".") == 0) {
+                printf("%s %d %d %d %s\n", 
+                       fmtname(de.name), 
+                       T_DIR,           // Type is always directory for . and ..
+                       de.inum,         // Use the inode number from dirent
+                       st.size,         // Size from parent directory's stat
+                       fmtmode(st.minor)); // Permissions from parent directory
+                continue;
+            }
+            
+            if(strcmp(de.name, "..") == 0) {
                 printf("%s %d %d %d %s\n", 
                        fmtname(de.name), 
                        T_DIR,           // Type is always directory for . and ..

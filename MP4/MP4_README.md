@@ -1,21 +1,17 @@
-# TODO
-
-- Finish implementation of the `chmod` function in `user/chmod.c`
-- Check if the mode setting is correct, need to recheck the second and third part in 3.4. Guidance
-
-# Key values used in problem 1
+# Problem 1 (Access control and Symbolic links)
+## Key values used
 
 ![](./README_images/key_values.png)
 
-# sys_symlink
+## sys_symlink
 
 In `kernel/sysfile.c`
 
-## Functions used
+### Functions used
 
 In `sys_symlink()`, we uses the following functions:
 
-### argstr
+#### argstr
 
 ```C
 // Fetch the nth word-sized system call argument as a null-terminated string.
@@ -33,7 +29,7 @@ int argstr(int n, char *buf, int max)
 
 - `n`: The index of the argument to fetch (0 for first arg, 1 for second, etc.)
 
-### begin_op / end_op
+#### begin_op / end_op
 
 The following functions `begin_op()` and `end_op()` can be found in `kernel/log.c`
 
@@ -104,7 +100,7 @@ void end_op(void)
 }
 ```
 
-### create
+#### create
 
 This original code of the function can be found in `kernel/sysfile.c`, for the code below, I added some comments to enhance understanding: 
 
@@ -181,7 +177,7 @@ In this function, we add a new file entry into the partent directory, so before 
 
 :bulb: After `create()` returned, we have a <ins>locked inode</ins> `ip`, which represents to our symlink.
 
-#### Modified part
+##### Modified part
 
 Note that we need to add the following line to the `create()` function:
 
@@ -191,7 +187,7 @@ ip->permission = 0x3; // default: rw
 
 Since we're asked to set the default permission to readable and writable.
 
-#### dirlink
+##### dirlink
 
 The function `dirlink()` is used to link the new inode to its parent directory, and is defined as:
 
@@ -233,7 +229,7 @@ int dirlink(struct inode *dp, char *name, uint inum)
 - Note: In the `create()` function, we call `panic()` if `dirlink()` failed, this is because before linking, we've already verified that the file does not exist, allocated a new inode and set up the properties of that inode, so if it still fails to link, the problem might due to a fundamental file system error.
 
 
-### writei
+#### writei
 
 ```C
 // Write data to inode.
@@ -280,7 +276,7 @@ int writei(struct inode *ip, int user_src, uint64 src, uint off, uint n)
 ```
 > In `kernel/fs.c`
 
-### iunlock
+#### iunlock
 
 ```C
 // Unlock the given inode.
@@ -294,7 +290,7 @@ void iunlock(struct inode *ip)
 ```
 > In `kernel/fs.c`
 
-### iunlockput
+#### iunlockput
 
 ```C
 // Common idiom: unlock, then put.
@@ -322,7 +318,7 @@ To be simple, when we created or accessed an inode, the reference count is incre
 
 - If count = 0, and link count also 0 (no directory entry pointing it), the resource for the inode would be freed.
 
-# sys_chmod
+## sys_chmod
 
 For this function, multiple places should be modified, the modified files and the modified functions / structures in it are stated as below:
 
@@ -351,7 +347,7 @@ For this function, multiple places should be modified, the modified files and th
 For the things that are modified in each function / structure, check the following subsections.
 
 
-## IMPORTANT MODIFICATION
+### IMPORTANT MODIFICATION
 :bangbang: The following contents in the subsections are the original thought of mine, which would cause the following error!
 
 ![](./README_images/inode_size_issue.png)
@@ -386,7 +382,7 @@ So in the following subsections, you can still check where to modify, but the co
 
 > Check the corresponding files for actual content!
 
-## Add inode field: permission
+### Add inode field: permission
 
 - This is also notified in the above `create()` subsection.
 
@@ -469,7 +465,7 @@ void ilock(struct inode *ip)
 }
 ```
 
-## Add permission check
+### Add permission check
 
 For the functions:
 
@@ -519,7 +515,7 @@ struct inode {
 
 Thus, we first access `file->ip`, then use the inode `ip` to get the permission info.
 
-## Uncomment system call number
+### Uncomment system call number
 
 Originally, the following line in `kernel/syscall.h` is commented out, uncomment it:
 
@@ -528,7 +524,7 @@ Originally, the following line in `kernel/syscall.h` is commented out, uncomment
 #define SYS_chmod 28
 ```
 
-## Add chmod to syscall table
+### Add chmod to syscall table
 
 In `kernel/syscall.c`, we need to add the following lines:
 
@@ -541,7 +537,7 @@ static uint64 (*syscalls[])(void) = {
 };
 ```
 
-## Declare chmod in user
+### Declare chmod in user
 
 We need to declare a user function `chmod` in `user/user.h`, in order to let user programs to call then trigger a trap into the kernel and pass the arguments
 
@@ -550,7 +546,7 @@ We need to declare a user function `chmod` in `user/user.h`, in order to let use
 int chmod(const char *, int);
 ```
 
-## Add user stub to trigger chmod syscall
+### Add user stub to trigger chmod syscall
 
 Add the following line in `user/usys.pl`:
 
@@ -562,7 +558,7 @@ The reason why we need to do so and what a "user stub" is is shown in the image 
 
 ![](./README_images/user_stub.png)
 
-## sys_chmod: modification and explanation 
+### sys_chmod: modification and explanation 
 
 In the `sys_chmod` function itself, we first fetch the arguments by the line:
 
@@ -576,9 +572,9 @@ The following image explains why we have this line like this intuitively:
 
 ![](./README_images/chmod_argstr.png)
 
-## chmod.c
+### chmod.c
 
-### printf / fprintf
+#### printf / fprintf
 
 We use:
 
@@ -596,7 +592,7 @@ because of the following reason:
 
 ![](./README_images/fprintf.png)
 
-### which chmod
+#### which chmod
 
 In the last part of `chmod.c`, we have:
 
@@ -613,7 +609,7 @@ The following is the detailed explanation:
 
 ![](./README_images/which_chmod.png)
 
-# sys_open
+## sys_open
 
 - `sys_open()` is in `sysfile.c`
 
@@ -621,9 +617,7 @@ The following is the detailed explanation:
 >
 > I would only record some of the questions of mine, and explain part of the meanings behind the code.
 
-
-
-## Meaning of the sys_open function
+### Meaning of the sys_open function
 
 Before checking the code, the following images are the intuitive explanation of this function, which I found really useful:
 
@@ -632,8 +626,8 @@ Before checking the code, the following images are the intuitive explanation of 
 ![](./README_images/sys_open_2.png)
 
 
-## Explanation / definition of things in sys_open
-### namex / namei 
+### Explanation / definition of things in sys_open
+#### namex / namei 
 
 ```C
 // Look up and return the inode for a path name.
@@ -654,7 +648,7 @@ struct inode *namei(char *path)
 
 > In `kernel/fs.c`
 
-### Device files
+#### Device files
 
 The following part of code in `sys_file.c` uses the field `major`, and what this means is shown in the image below.
 
@@ -669,7 +663,7 @@ if (ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV))
 
 ![](./README_images/major_minor.png)
 
-## Add flag
+### Add flag
 
 Note that in the `sys_open()` function, some flags are used, but one of them are not defined in the header file `fcntl.h`, where we define the flags.
 
@@ -683,7 +677,7 @@ Manually add the following line:
 
 - Note: I put comments explaining the meanings of the flags, check `fcntl.h` if needed.
 
-## Modify Makefile
+### Modify Makefile
 
 Add this line `$U/_chmod\` under `UPROGS`:
 
@@ -692,7 +686,7 @@ UPROGS=\
 	$U/_chmod\
 ```
 
-# ls
+## ls
 
 `user/ls.c` is modified.
 
@@ -703,3 +697,25 @@ UPROGS=\
 
 3. Each file within a directory is also opened with `O_NOACCESS` to get its accurate metadata
 
+
+# Problem 2 (RAID 1 simulation)
+
+File that needed to be modified
+- `kernel/bio.c`
+
+From `kernel/buf.h`, we can see that `struct buf` is defined as follows:
+
+```C
+struct buf
+{
+    int valid; // has data been read from disk?
+    int disk;  // does disk "own" buf?
+    uint dev;
+    uint blockno;   // tells the disk driver where to write the data (holds target physical block number)
+    struct sleeplock lock;
+    uint refcnt;
+    struct buf *prev; // LRU cache list
+    struct buf *next;
+    uchar data[BSIZE];  // holds the actual content we want to write
+};
+```

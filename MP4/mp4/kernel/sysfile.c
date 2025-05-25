@@ -301,99 +301,47 @@ static struct inode *create(char *path, short type, short major, short minor)
 /* TODO: Access Control & Symbolic Link */
 uint64 sys_open(void)
 {
-    char path[MAXPATH];     // Buffer to store the path argument
-    int fd, omode;          // File descriptor and open mode flags
+    char path[MAXPATH];
+    int fd, omode;
     struct file *f;         // File structure pointer
     struct inode *ip;       // Inode pointer for the file/directory
-    int n;                  // Return value for argument parsing
+    int n;
 
-    // Parse arguments: path string and open mode flags
-    // explain: argstr(0, path, MAXPATH) -> copy the string argument at position 0 (path, str) from user space to kernel space
-    // explain: argint(1, &omode) -> fetch the integer argument at position 1 (omode, int) from user space to kernel space
+    // Get path and open mode from arguments
     if ((n = argstr(0, path, MAXPATH)) < 0 || argint(1, &omode) < 0)
-        return -1;          
+        return -1;
 
-    printf("sys_open: path=%s, omode=0x%x\n", path, omode);
+    begin_op();
 
-    begin_op();             // ensure atomicity
-
-    // case: Creating a new file (O_CREATE flag is set)
+    // Handle O_CREATE flag
     if (omode & O_CREATE)
     {
-        // Create a new regular file (T_FILE)
         ip = create(path, T_FILE, 0, 0);
-        if (ip == 0)                         // Create failed (due to reason like path exists, permission issue,...)
+        if (ip == 0)
         {
             end_op();
             return -1;
         }
     }
-    // case: Open an existing file or directory (O_CREATE flag is not set)
     else
     {
-        // Try to find the inode of the file/directory for the given path
-        if ((ip = namei(path)) == 0)    // Path doesn't exist
+        // Look up the path
+        if ((ip = namei(path)) == 0)
         {
             end_op();
             return -1;
         }
-        ilock(ip);                      // Lock the inode for exclusive access
+        ilock(ip);
 
-        // Handle symbolic links (follow up to 10 links in a chain)
-        // Return -1 if: 
-        // 1. Can't read target path
-        // 2. target path doesn't exist
-        // 3. We've followed too many links
-        int max_links = 10;
-        while (ip->type == T_SYMLINK && !(omode & O_NOFOLLOW) && max_links-- > 0) {
-            char target[MAXPATH];
-            // Read the target path from the symlink inode
-            if (readi(ip, 0, (uint64)target, 0, MAXPATH) < 0) {
-                iunlockput(ip);
-                end_op();
-                return -1;
-            }
-            target[MAXPATH-1] = '\0'; // Ensure null-termination
-            
-            // Release the current inode before following the link
-            iunlockput(ip);
-            
-            // Try to find the inode of the target path
-            if ((ip = namei(target)) == 0) {
-                end_op();
-                return -1;
-            }
-            ilock(ip);
-        }
-        
-        // Check if we've followed too many links
-        if (max_links < 0) {
-            iunlockput(ip);
-            end_op();
-            return -1;
-        }
-
-        // Directories can only be opened with O_RDONLY or O_NOACCESS
-        if (ip->type == T_DIR && !(omode == O_RDONLY || omode == O_NOACCESS))
-        {
-            printf("Directory can only be opened with O_RDONLY or O_NOACCESS\n");
+        // Check if it's a directory being opened without O_RDONLY or O_NOACCESS
+        if (ip->type == T_DIR && omode != O_RDONLY && omode != O_NOACCESS) {
             iunlockput(ip);
             end_op();
             return -1;
         }
     }
 
-    if (ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV))
-    {
-        iunlockput(ip);
-        end_op();
-        return -1;
-    }
-
-    // Allocate a global file structure from the global file table, 
-    // -> returns 0 if no free file structure is available (happens when system reached limit of open files)
-    // Allocate a file descriptor in the current process's file descriptor table
-    // -> returns new fd number if successful, otherwise returns -1 (happens when the process reached limit of open files)
+    // Allocate a file descriptor
     if ((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0)
     {
         if (f)
@@ -425,14 +373,14 @@ uint64 sys_open(void)
         if (ip->type != T_DEVICE) {
             // Check if read access is requested but not permitted
             if ((omode == O_RDONLY || omode == O_RDWR) && !(ip->minor & 0x1)) {
-                printf("Read permission denied\n");
+                fileclose(f);
                 iunlockput(ip);
                 end_op();
                 return -1;
             }
             // Check if write access is requested but not permitted
             if ((omode == O_WRONLY || omode == O_RDWR) && !(ip->minor & 0x2)) {
-                printf("Write permission denied\n");
+                fileclose(f);
                 iunlockput(ip);
                 end_op();
                 return -1;
@@ -463,19 +411,19 @@ uint64 sys_mkdir(void)
 
     begin_op();
     if (argstr(0, path, MAXPATH) < 0) {
-        printf("mkdir: failed to get path argument\n");
+        // printf("mkdir: failed to get path argument\n");  
         end_op();
         return -1;
     }
     
-    printf("Creating directory: %s\n", path);
+    // printf("Creating directory: %s\n", path);  
     if ((ip = create(path, T_DIR, 0, 0)) == 0) {
-        printf("mkdir: create failed for %s\n", path);
+        // printf("mkdir: create failed for %s\n", path);  
         end_op();
         return -1;
     }
 
-    printf("Directory created with type=%d, minor=%d\n", ip->type, ip->minor);
+    // printf("Directory created with type=%d, minor=%d\n", ip->type, ip->minor);  
     iunlockput(ip);
     end_op();
     return 0;
