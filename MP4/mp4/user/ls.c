@@ -3,6 +3,7 @@
 #include "user/user.h"
 #include "kernel/fcntl.h"
 #include "kernel/fs.h"
+#include "kernel/param.h"  // includes MAXPATH definition
 
 char *fmtname(char *path)
 {
@@ -43,86 +44,60 @@ char* fmtmode(int minor)
 /* TODO: Access Control & Symbolic Link */
 void ls(char *path)
 {
-    char buf[512], *p;
-    int fd;
-    struct dirent de;
-    struct stat st;
+    char buf[512], *p;        // Buffer for constructing full paths when listing directory contents
+    int fd;                   // File descriptor
+    struct dirent de;         // Directory entry structure
+    struct stat st;           // Metadata of the file/directory
 
-    if ((fd = open(path, O_NOACCESS)) < 0)
-    {
-        fprintf(2, "ls: cannot open %s\n", path);
-        return;
-    }
-
-    if (fstat(fd, &st) < 0)
-    {
-        close(fd);
-        fprintf(2, "ls: cannot open %s\n", path);
-        return;
-    }
+    fprintf(2, "DEBUG: Starting ls for path: %s\n", path);
     
-    switch (st.type)
-    {
+    // Try to open with O_RDONLY first to check read permission
+    fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        fprintf(2, "ls: cannot open %s\n", path);
+        return;
+    }
+    fprintf(2, "DEBUG: Opened file with fd: %d\n", fd);
+
+    // Use fstat to get the metadata of the opened file / directory
+    if (fstat(fd, &st) < 0) {
+        fprintf(2, "DEBUG: fstat failed\n");
+        close(fd);
+        return;
+    }
+    fprintf(2, "DEBUG: File type: %d\n", st.type);
+
+    switch (st.type) {
     case T_FILE:
+        // For files, just print info since we already checked read permission with O_RDONLY
+        fprintf(2, "DEBUG: Processing regular file\n");
         printf("%s %d %d %d %s\n", fmtname(path), st.type, st.ino, st.size, fmtmode(st.minor));
-        break;
-    case T_SYMLINK:
-        printf("%s %d %d %d %s\n", fmtname(path), st.type, st.ino, st.size, fmtmode(st.minor));
-        break;
+        close(fd);
+        return;
 
     case T_DIR:
-        
-        // Close the O_NOACCESS fd and reopen with O_RDONLY for reading contents
-        close(fd);
-        
-        // From the spec: "A directory, or a symbolic link to a directory, will only be opened with either O_RDONLY or O_NOACCESS"
-        // For listing contents, we need O_RDONLY
-        fd = open(path, O_RDONLY);
-        if (fd < 0) {
-            // This will fail if the directory doesn't have read permission
-            fprintf(2, "ls: cannot open directory %s for reading\n", path);
-            return;
-        }
-        
+        // For directories, we already checked read permission with O_RDONLY
+        // Now list contents
+        fprintf(2, "DEBUG: Processing directory\n");
         strcpy(buf, path);
         p = buf + strlen(buf);
         *p++ = '/';
-        while (read(fd, &de, sizeof(de)) == sizeof(de))
-        {
+        while (read(fd, &de, sizeof(de)) == sizeof(de)) {
             if (de.inum == 0)
                 continue;
-            
             memmove(p, de.name, DIRSIZ);
             p[DIRSIZ] = 0;
+            fprintf(2, "DEBUG: Processing directory entry: %s\n", de.name);
             
-            // Special handling for "." and ".." to avoid stat errors
-            if(strcmp(de.name, ".") == 0) {
-                printf("%s %d %d %d %s\n", 
-                       fmtname(de.name), 
-                       T_DIR,           // Type is always directory for . and ..
-                       de.inum,         // Use the inode number from dirent
-                       st.size,         // Size from parent directory's stat
-                       fmtmode(st.minor)); // Permissions from parent directory
-                continue;
-            }
-            
-            if(strcmp(de.name, "..") == 0) {
-                printf("%s %d %d %d %s\n", 
-                       fmtname(de.name), 
-                       T_DIR,           // Type is always directory for . and ..
-                       de.inum,         // Use the inode number from dirent
-                       st.size,         // Size from parent directory's stat
-                       fmtmode(st.minor)); // Permissions from parent directory
-                continue;
-            }
-            
-            // Use O_NOACCESS alone for each entry per spec
             int entry_fd = open(buf, O_NOACCESS);
-            if (entry_fd < 0)
+            if (entry_fd < 0) {
+                fprintf(2, "DEBUG: Failed to open entry: %s\n", buf);
                 continue;
+            }
                 
             struct stat entry_st;
             if (fstat(entry_fd, &entry_st) < 0) {
+                fprintf(2, "DEBUG: Failed to stat entry: %s\n", buf);
                 close(entry_fd);
                 continue;
             }
@@ -136,10 +111,109 @@ void ls(char *path)
                    
             close(entry_fd);
         }
-        break;
+        close(fd);
+        return;
+
+    case T_SYMLINK:
+        fprintf(2, "DEBUG: Processing symlink\n");
+        {
+            char target[MAXPATH];
+            struct stat target_st;
+            
+            // Read the target path so that we can know if this symlink points to a directory or a file
+            int n = read(fd, target, MAXPATH-1);
+            if (n <= 0) {
+                fprintf(2, "DEBUG: Failed to read symlink target\n");
+                close(fd);
+                return;
+            }
+            target[n] = 0;  // Ensure null termination
+            close(fd);  // Close the symlink fd before proceeding
+            
+            fprintf(2, "DEBUG: Symlink target path: %s\n", target);
+
+            // Try to open target with O_RDONLY
+            int target_fd = open(target, O_RDONLY);
+            if (target_fd < 0) {
+                // Cannot open target - just print symlink info
+                fd = open(path, O_NOACCESS);
+                if (fd < 0) {
+                    fprintf(2, "DEBUG: Failed to reopen symlink\n");
+                    return;
+                }
+                if (fstat(fd, &st) < 0) {
+                    fprintf(2, "DEBUG: Failed to stat symlink\n");
+                    close(fd);
+                    return;
+                }
+                printf("%s %d %d %d %s\n", fmtname(path), st.type, st.ino, st.size, fmtmode(st.minor));
+                close(fd);
+                return;
+            }
+
+            if (fstat(target_fd, &target_st) < 0) {
+                fprintf(2, "DEBUG: Failed to stat target\n");
+                close(target_fd);
+                return;
+            }
+
+            if (target_st.type == T_DIR) {
+                // For symlink to directory:
+                // List directory contents since we have read permission
+                fprintf(2, "DEBUG: Target is directory\n");
+                strcpy(buf, target);
+                p = buf + strlen(buf);
+                *p++ = '/';
+                while (read(target_fd, &de, sizeof(de)) == sizeof(de)) {
+                    if (de.inum == 0)
+                        continue;
+                    memmove(p, de.name, DIRSIZ);
+                    p[DIRSIZ] = 0;
+                    
+                    int entry_fd = open(buf, O_NOACCESS);
+                    if (entry_fd < 0) {
+                        fprintf(2, "DEBUG: Failed to open entry in target: %s\n", buf);
+                        continue;
+                    }
+                        
+                    struct stat entry_st;
+                    if (fstat(entry_fd, &entry_st) < 0) {
+                        fprintf(2, "DEBUG: Failed to stat entry in target: %s\n", buf);
+                        close(entry_fd);
+                        continue;
+                    }
+                    
+                    printf("%s %d %d %d %s\n", 
+                           fmtname(de.name), 
+                           entry_st.type, 
+                           entry_st.ino, 
+                           entry_st.size, 
+                           fmtmode(entry_st.minor));
+                           
+                    close(entry_fd);
+                }
+                close(target_fd);
+            } else {
+                // For symlink to file:
+                // Just print symlink info since parent directories are readable
+                fprintf(2, "DEBUG: Target is file\n");
+                close(target_fd);  // Close target_fd before opening symlink again
+                fd = open(path, O_NOACCESS);
+                if (fd < 0) {
+                    fprintf(2, "DEBUG: Failed to reopen symlink\n");
+                    return;
+                }
+                if (fstat(fd, &st) < 0) {
+                    fprintf(2, "DEBUG: Failed to stat symlink\n");
+                    close(fd);
+                    return;
+                }
+                printf("%s %d %d %d %s\n", fmtname(path), st.type, st.ino, st.size, fmtmode(st.minor));
+                close(fd);
+            }
+            return;
+        }
     }
-    
-    close(fd);
 }
 
 int main(int argc, char *argv[])

@@ -1,5 +1,5 @@
 # Problem 1 (Access control and Symbolic links)
-## Key values used
+## Key values used 
 
 ![](./README_images/key_values.png)
 
@@ -697,6 +697,32 @@ UPROGS=\
 
 3. Each file within a directory is also opened with `O_NOACCESS` to get its accurate metadata
 
+### flow
+
+1. Check if we're reading a file / directory / symlink
+- If a file
+    1. check read permission
+        - readable >> print info
+        - not readable >> print `ls: cannot open f`
+- If a directory
+    1. check read permission
+        - readable >> print info
+        - not readable >> print `ls: cannot open f`
+- If a symlink
+    - symlink to a file
+        1. check if this file is under any directory that has no read permission
+            - if so (some parent directory has no read permission) 
+            $\rightarrow$ print `ls: cannot open f`  
+            - if not (all the directories on the path that contains the file has read permission) 
+            $\rightarrow$ give the detail of the symlink itself
+            > note: whether the file has read permission would not affect printing the info of the symlink
+    - symlink to a directory
+        1. Check if the directory has read permission
+            - if no read permission for the directory itself: ls fail
+        2. Check if the directory is under any directory that does not have read permission
+            - if any parent directory does not have read permission: ls fail
+        3. If all the above things did not happen, list the content of the directory
+
 
 # Problem 2 (RAID 1 simulation)
 
@@ -719,3 +745,26 @@ struct buf
     uchar data[BSIZE];  // holds the actual content we want to write
 };
 ```
+
+
+# Additional info from NTUCOOL discussion
+
+In the discussion section of this MP, somethings might be useful:
+
+## path argument restriction
+
+The path argument for the functions like `open`, `chmod`,... would not contain `.` or `..`
+
+## Without read permission on path
+
+![](./README_images/path_wo_read_noaccess.png)
+
+For example:
+
+`open("test2_fake/d2/f2", O_NOACCESS)`
+
+$\rightarrow$ if `test2_fake` or `d1` have no read permission, `open` should fail even with `O_NOACCESS`.  
+
+## Replace all ls with O_NOACCESS
+
+![](./README_images/replace_all_ls_noaccess.png)

@@ -11,33 +11,38 @@ void usage() {
 }
 
 void recursive_chmod(char *path, int mode) {
-    char buf[512], *p;
-    int fd;
-    struct dirent de;
     struct stat st;
+    struct dirent de;
+    int fd;
+    char buf[512], *p;
+    // Check if we're adding or removing permissions 
+    // explain: since the approach would differ using top-down (remove) or bottom-up (add)
+    // read = 0x1, write = 0x2
+    int is_add = (mode & 0x1) || (mode & 0x2);
 
-    if((fd = open(path, O_RDONLY)) < 0) {
-        fprintf(2, "chmod: cannot open %s\n", path);
+    // Get file/directory information
+    if(stat(path, &st) < 0)
         return;
-    }
-
-    if(fstat(fd, &st) < 0) {
-        fprintf(2, "chmod: cannot stat %s\n", path);
-        close(fd);
-        return;
-    }
-
-    chmod(path, mode);
 
     if(st.type == T_DIR) {
-        if(strlen(path) + 1 + DIRSIZ + 1 > sizeof buf) {
-            printf("chmod: path too long\n");
-            close(fd);
+        // Always open with O_NOACCESS to ensure we can read directory contents
+        fd = open(path, O_NOACCESS);
+        if(fd < 0)
             return;
+
+        // For removing permissions (top-down):
+        // 1. Change parent permissions first
+        // 2. Then process children
+        if(!is_add) {
+            chmod(path, mode);
         }
+
+        // Process all children
         strcpy(buf, path);
-        p = buf+strlen(buf);
+        p = buf + strlen(buf);
         *p++ = '/';
+
+        // Process directory entries
         while(read(fd, &de, sizeof(de)) == sizeof(de)) {
             if(de.inum == 0)
                 continue;
@@ -47,8 +52,18 @@ void recursive_chmod(char *path, int mode) {
             p[DIRSIZ] = 0;
             recursive_chmod(buf, mode);
         }
+        close(fd);
+
+        // For adding permissions (bottom-up):
+        // 1. Process all children first (done above)
+        // 2. Then change parent permissions
+        if(is_add) {
+            chmod(path, mode);
+        }
+    } else {
+        // For regular files, simply change mode
+        chmod(path, mode);
     }
-    close(fd);
 }
 
 int main(int argc, char *argv[]) {

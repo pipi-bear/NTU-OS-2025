@@ -99,41 +99,48 @@ struct buf *bget(uint dev, uint blockno)
 struct buf*
 bread(uint dev, uint blockno)
 {
-  struct buf *b;
-  uint pbn0, pbn1;
-  int is_forced_fail_target = 0;
-  int fail_disk = -1;
+    struct buf *b;
+    uint pbn0, pbn1;
+    int is_forced_fail_target = 0;
+    int fail_disk = -1;
 
-  pbn0 = blockno;
-  pbn1 = blockno + LOGICAL_DISK_SIZE;
+    // Calculate physical block numbers for both disks
+    pbn0 = blockno;
+    pbn1 = blockno + LOGICAL_DISK_SIZE;
 
-  b = bget(dev, blockno);
+    b = bget(dev, blockno);
 
-  if (force_read_error_pbn != -1 && b->blockno == force_read_error_pbn) {
-    is_forced_fail_target = 1;
-    fail_disk = 0;
-  } else if (force_disk_fail_id != -1) {
-    is_forced_fail_target = 1;
-    fail_disk = force_disk_fail_id;
-  }
-
-  if (!b->valid || is_forced_fail_target) {
-    if (fail_disk == 0) {
-      b->blockno = pbn1;
-      virtio_disk_rw(b, 0);
-      b->valid = 1;
-    } else if (fail_disk == 1) {
-      b->blockno = pbn0;
-      virtio_disk_rw(b, 0);
-      b->valid = 1;
-    } else {
-      b->blockno = pbn0;
-      virtio_disk_rw(b, 0);
-      b->valid = 1;
+    // Check for specific block failure or disk failure
+    if (force_read_error_pbn != -1 && b->blockno == force_read_error_pbn) {
+        is_forced_fail_target = 1;
+        fail_disk = 0;  // Force read from mirror disk
+    } else if (force_disk_fail_id != -1) {
+        is_forced_fail_target = 1;
+        fail_disk = force_disk_fail_id;
     }
-    b->blockno = blockno;
-  }
-  return b;
+
+    // Handle cache miss or forced failure cases
+    if (!b->valid || is_forced_fail_target) {
+        if (fail_disk == 0) {
+            // Primary disk failed, read from mirror
+            b->blockno = pbn1;
+            virtio_disk_rw(b, 0);
+            b->valid = 1;
+        } else if (fail_disk == 1) {
+            // Mirror disk failed, read from primary
+            b->blockno = pbn0;
+            virtio_disk_rw(b, 0);
+            b->valid = 1;
+        } else {
+            // Normal case - no failures
+            b->blockno = pbn0;
+            virtio_disk_rw(b, 0);
+            b->valid = 1;
+        }
+        // Restore original block number to maintain buffer cache consistency
+        b->blockno = blockno;
+    }
+    return b;
 }
 
 // TODO: RAID 1 simulation
@@ -142,6 +149,8 @@ void bwrite(struct buf *b)
 {
     if (!holdingsleep(&b->lock))
         panic("bwrite");
+    
+    printf("DEBUG_BW: Starting write for logical block %d\n", b->blockno);
     
     // Save the original block number, since we need to restore it after mirroring
     uint orig_blockno = b->blockno;
@@ -155,6 +164,8 @@ void bwrite(struct buf *b)
     // buffer b: contains data to be written
     uint pbn0 = b->blockno;
     uint pbn1 = b->blockno + DISK1_START_BLOCK;
+
+    printf("DEBUG_BW: Calculated PBNs - Primary(PBN0)=%d, Mirror(PBN1)=%d\n", pbn0, pbn1);
 
     // Read current simulation state
     // fail_disk: -1 if no failure, 0 if Disk 0 failed, 1 if Disk 1 failed
@@ -174,7 +185,6 @@ void bwrite(struct buf *b)
         // Specific block failure on Disk 0
         printf("BW_ACTION: SKIP_PBN0 (PBN %d) due to simulated PBN0 block failure.\n", pbn0);
     } else {
-        // PBN0 is clear for writing
         printf("BW_ACTION: ATTEMPT_PBN0 (PBN %d).\n", pbn0);
         b->blockno = pbn0;
         virtio_disk_rw(b, 1);
@@ -196,7 +206,9 @@ void bwrite(struct buf *b)
     }
 
     // Restore original block number to maintain buffer cache consistency
+    // This is done only once, after all operations are complete
     b->blockno = orig_blockno;
+    printf("DEBUG_BW: Restored original block number to %d\n", orig_blockno);
 }
 
 // Release a locked buffer.
