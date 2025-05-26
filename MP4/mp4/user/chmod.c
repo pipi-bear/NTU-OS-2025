@@ -17,12 +17,12 @@ void recursive_chmod(char *path, int mode) {
     struct stat st;
 
     if((fd = open(path, O_RDONLY)) < 0) {
-        fprintf(2, "chmod: cannot open %s\n", path);
+        fprintf(2, "chmod: cannot chmod %s\n", path);
         return;
     }
 
     if(fstat(fd, &st) < 0) {
-        fprintf(2, "chmod: cannot stat %s\n", path);
+        fprintf(2, "chmod: cannot chmod %s\n", path);
         close(fd);
         return;
     }
@@ -73,7 +73,34 @@ int main(int argc, char *argv[]) {
     }
 
     // Check permission format
+    // 1. Must start with + or -
     if (perm[0] != '+' && perm[0] != '-') {
+        usage();
+    }
+
+    // 2. Check length (must be 2 or 3 characters)
+    int len = strlen(perm);
+    if (len < 2 || len > 3) {
+        usage();
+    }
+
+    // 3. Check for invalid characters after + or -
+    if (len == 2) {
+        // Single permission: must be 'r' or 'w'
+        if (perm[1] != 'r' && perm[1] != 'w') {
+            usage();
+        }
+    } else if (len == 3) {
+        // Double permission: must be 'rw' or 'wr'
+        if (!((perm[1] == 'r' && perm[2] == 'w') ||
+              (perm[1] == 'w' && perm[2] == 'r'))) {
+            usage();
+        }
+    }
+
+    // 4. Check for multiple operators (like '+-')
+    if (perm[1] == '+' || perm[1] == '-' ||
+        (len == 3 && (perm[2] == '+' || perm[2] == '-'))) {
         usage();
     }
 
