@@ -109,11 +109,29 @@ uint64 sys_fstat(void)
     struct file *f;
     uint64 st; // user pointer to struct stat
 
-    if (argfd(0, 0, &f) < 0 || argaddr(1, &st) < 0)
+    // Try to get file descriptor and stat buffer address from user arguments
+    if (argfd(0, 0, &f) < 0) {
+        // printf("DEBUG_FSTAT: argfd failed\n");
         return -1;
-    if (!(f->ip->minor & 0x1) && f->ip->type != T_DEVICE) // no read permission, if not a device
+    }
+    if (argaddr(1, &st) < 0) {
+        // printf("DEBUG_FSTAT: argaddr failed\n");
         return -1;
-    return filestat(f, st);
+    }
+
+    // Allow metadata access if:
+    // 1. File was opened with O_NOACCESS (neither readable nor writable)
+    // 2. File has read permission
+    // 3. File is a device
+    if ((!f->readable && !f->writable) ||  // O_NOACCESS case
+        (f->ip->minor & 0x1) ||            // Has read permission
+        f->ip->type == T_DEVICE) {         // Is a device
+        return filestat(f, st);
+    }
+
+    // printf("DEBUG_FSTAT: no read permission and not O_NOACCESS, type=%d, minor=%d\n", 
+    //        f->ip->type, f->ip->minor);
+    return -1;
 }
 
 // Create the path new as a link to the same inode as old.
