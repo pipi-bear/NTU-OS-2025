@@ -318,8 +318,15 @@ void ilock(struct inode *ip)
 // Unlock the given inode.
 void iunlock(struct inode *ip)
 {
-    if (ip == 0 || !holdingsleep(&ip->lock) || ip->ref < 1)
+    if (ip == 0 || !holdingsleep(&ip->lock) || ip->ref < 1){
+        // if (ip == 0) {
+        //     printf("iunlock panic: ip is NULL\n");
+        // } else {
+        //     printf("iunlock panic: ip->inum %d, type %d, dev %d, ref %d, holdingsleep %d\n",
+        //         ip->inum, ip->type, ip->dev, ip->ref, holdingsleep(&ip->lock));
+        // }
         panic("iunlock");
+    }
 
     releasesleep(&ip->lock);
 }
