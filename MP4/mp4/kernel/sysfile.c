@@ -74,6 +74,8 @@ uint64 sys_read(void)
 
     if (argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argaddr(1, &p) < 0)
         return -1;
+    if (!(f->ip->minor & 0x1) && f->ip->type != T_DEVICE) // no read permission, if not a device
+        return -1;
     return fileread(f, p, n);
 }
 
@@ -311,7 +313,7 @@ uint64 sys_open(void)
 
     begin_op();
 
-    // Handle O_CREATE flag
+    // If it's a file and O_CREATE flag is set, create a new file
     if (omode & O_CREATE)
     {
         ip = create(path, T_FILE, 0, 0);
@@ -321,80 +323,86 @@ uint64 sys_open(void)
             return -1;
         }
     }
-    else
+    else    // O_CREATE is not set, so look up the file / directory
     {
-        // Look up the path
+        // Look up the existing file / directory using namei(), which calls iget() internally and increments the reference count
         if ((ip = namei(path)) == 0)
         {
+            // If the file / directory does not exist, end transaction and return -1
             end_op();
             return -1;
         }
+        // Lock the inode to prevent it from being modified while we're using it
         ilock(ip);
+        printf("SYS_OPEN_DEBUG: After ilock, lock the inode %s, current ref count: %d\n", path, ip->ref);
 
-        // Check if it's a directory being opened without O_RDONLY
-        if (ip->type == T_DIR) {
-            if (omode != O_RDONLY) {
-                iunlockput(ip);
-                end_op();
-                return -1;
-            }
-            // For directories, also check read permission
-            if (!(ip->minor & 0x1)) {
-                iunlockput(ip);
-                end_op();
-                return -1;
-            }
-        }
-
-        // Handle symlinks
-        if (ip->type == T_SYMLINK && omode != O_NOFOLLOW) {
-            int recursive_count = 0;
-            int current_link_amount = 0;
-            while (recursive_count <= 5) {
-                char target[MAXPATH];
-                if (readi(ip, 0, (uint64)target, 0, MAXPATH) < 0) {
-                    iunlockput(ip);
-                    end_op();
-                    return -1;
-                }
-                iunlockput(ip);
-                if ((ip = namei(target)) == 0) {
-                    end_op();
-                    return -1;
-                }
-                ilock(ip);
-                if (ip->type != T_SYMLINK) {
-                    current_link_amount = 1;
-                    break;
-                }
-                recursive_count++;
-            }
-            if (current_link_amount == 0) 
-            {
-                iunlockput(ip);
-                end_op();
-                return -1;
-            }
+        // Check if it's a directory and has flag O_WRONLY or O_RDWR, this shall not happen since we cannot write to a directory
+        if (ip->type == T_DIR && omode != O_RDONLY && omode != O_NOACCESS) {
+            iunlockput(ip);
+            printf("SYS_OPEN_DEBUG: Opening directory '%s', current ref count: %d\n", path, ip->ref);
+            end_op();
+            return -1;
         }
     }
 
-    // Allocate a file descriptor
-    if ((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0)
+    // Allocate a struct file from the global file table (shared by all processes)
+    // note: each open() call will allocate a new struct file because we need independent:
+    // note: 1. file position (f->off)
+    // note: 2. file permissions (f->readable, f->writable)
+    // note: 3. reference counting (f->ref)
+    // * can check the struct file in file.h
+    
+    // fdalloc() allocates a fd from the current process's file descriptor table and assigns the file struct to it
+    if ((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0)        // case: either we cannot allocate a file struct, or we cannot allocate a fd
     {
-        if (f)
+        if (f) {
+            // if f is not 0, this would imply that filealloc() succeeded, and fdalloc() failed
+            // so we need to close the file and return -1
             fileclose(f);
+            printf("SYS_OPEN_DEBUG: Failed to allocate fd for '%s', after close, current ref count: %d\n", path, ip->ref);
+        }
+        // explain: use iunlockput() to: 
+        // explain: 1. unlock the inode (which we previously locked by ilock(ip))
+        // explain: 2. decrease the reference count (by iput() internally), since we previously incremented it by namei(path)
         iunlockput(ip);
+        printf("SYS_OPEN_DEBUG: After iunlockput, current ref count: %d\n", path, ip->ref);
         end_op();
         return -1;
     }
 
-    if (ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV))
-    {
-        iunlockput(ip);
-        end_op();
-        return -1;
+    // DON'T set f->ip = ip or f->type yet - keep them as initialized (FD_NONE, 0)
+
+    if (omode & O_NOACCESS) {
+        // For O_NOACCESS: set neither readable nor writable (spec 3.3.5 1.)
+        f->readable = 0;
+        f->writable = 0;
+    } else {
+        // For non-device files, check permissions against requested access mode
+        if (ip->type != T_DEVICE) {
+            // Check if read access is requested but not permitted
+            if ((omode == O_RDONLY || omode == O_RDWR) && !(ip->minor & 0x1)) {
+                fileclose(f);     // f->type = FD_NONE, f->ip = 0, no iput() called
+                printf("SYS_OPEN_DEBUG: Failed to open '%s', after fileclose, current ref count: %d\n", path, omode, ip->ref);
+                iunlockput(ip);   // explain: use iunlockput() to unlock and decrease ref count
+                printf("SYS_OPEN_DEBUG: After iunlockput, current ref count: %d\n", path, ip->ref);
+                end_op();
+                return -1;
+            }
+            // Check if write access is requested but not permitted
+            if ((omode == O_WRONLY || omode == O_RDWR) && !(ip->minor & 0x2)) {
+                fileclose(f);     // f->type = FD_NONE, f->ip = 0, no iput() called
+                iunlockput(ip);   // explain: use iunlockput() to unlock and decrease ref count
+                end_op();
+                return -1;
+            }
+        }
+
+        // Set file descriptor permissions based on open mode
+        f->readable = (omode == O_RDONLY || omode == O_RDWR);
+        f->writable = (omode == O_WRONLY || omode == O_RDWR);
     }
 
+    // Until now, we have successfully allocated a file struct and a fd
     // Set up file structure based on inode type
     if (ip->type == T_DEVICE)
     {
@@ -407,17 +415,7 @@ uint64 sys_open(void)
         f->off = 0;             // Initialize offset to 0
     }
 
-    f->ip = ip;
-    
-    if (omode & O_NOACCESS) {
-        // For O_NOACCESS: set neither readable nor writable, but allow open
-        f->readable = 0;
-        f->writable = 0;
-    } else {
-        // Set file descriptor permissions based on open mode
-        f->readable = !(omode & O_WRONLY);
-        f->writable = (omode & O_WRONLY) || (omode & O_RDWR);
-    }
+    f->ip = ip;  // NOW set f->ip after all validation passes
 
     // If O_TRUNC is set and it's a regular file, truncate it
     if ((omode & O_TRUNC) && ip->type == T_FILE)
@@ -425,7 +423,7 @@ uint64 sys_open(void)
         itrunc(ip);
     }
 
-    iunlock(ip);
+    iunlock(ip);  // Only unlock, f owns the reference now
     end_op();
 
     return fd;
@@ -667,7 +665,10 @@ uint64 sys_symlink(void)
     }
 
     // Write the target path (kernel address) to the symlink inode (ip)
-    if (writei(ip, 0, (uint64)target, 0, MAXPATH) < 0) {
+    // If the amount of bytes written is samller than the length of the target path, 
+    // we should unlock the inode, decrease the reference count (these are done in iunlockput()), and return -1
+    if (writei(ip, 0, (uint64)target, 0, strlen(target)) < strlen(target)) {
+        iunlockput(ip);
         end_op();
         return -1;
     }

@@ -627,26 +627,95 @@ Before checking the code, the following images are the intuitive explanation of 
 
 
 ### Explanation / definition of things in sys_open
+
 #### namex / namei 
 
+- In `kernel/fs.c`, should be modified
+
+Intuitively, `namex` is a path-to-inode translator, we give a human readable address like `/home/user/document.txt`, then `namex` navigates through the filesystem structure to find the actual location ( `inode` ).
+
+We need to find the inode for a path because of the following situations:
+
+![](./README_images/namex_usage.png)
+
+
+##### nameiparent
+
 ```C
-// Look up and return the inode for a path name.
-// If parent != 0, return the inode for the parent and copy the final
-// path element into name, which must have room for DIRSIZ bytes.
-// Must be called inside a transaction since it calls iput().
-static struct inode *namex(char *path, int nameiparent, char *name){
+// nameiparent = 0: return the inode for the final component
+// nameiparent = 1: return the inode for the parent directory 
+```
 
-    return ip;
-}
+Why in some cases we need to return the inode of the parent? The following shows examples for getting inode of the final component and the parent:
 
-struct inode *namei(char *path)
+```C
+// Changing file permissions - need the file itself
+$ chmod 755 /home/user/script.sh
+→ namei("/home/user/script.sh")  // Returns script.sh inode
+
+// Creating a file - need parent directory to add entry
+touch /home/user/newfile.txt
+→ nameiparent("/home/user/newfile.txt", name)  // Returns user directory inode
+                                               // Sets name = "newfile.txt"
+```
+
+##### skipelem and dirlookup
+
+An example of the usage for the two functions `skipelem` and `dirlookup` are shown as below:
+
+```C
+// Starting state
+path = "/usr/bin/ls"
+ip = root_directory_inode
+
+// Iteration 1:
+path = skipelem("/usr/bin/ls", name)  // name="usr", path="bin/ls"
+next = dirlookup(root_inode, "usr")   // Find "usr" in root directory
+ip = next                             // Move to usr directory
+
+// Iteration 2:  
+path = skipelem("bin/ls", name)       // name="bin", path="ls"
+next = dirlookup(usr_inode, "bin")    // Find "bin" in usr directory
+ip = next                             // Move to bin directory
+
+// Iteration 3:
+path = skipelem("ls", name)           // name="ls", path=""
+next = dirlookup(bin_inode, "ls")     // Find "ls" in bin directory
+ip = next                             // Move to ls file
+
+// Loop ends because skipelem("", name) returns 0
+return ip                             // Return ls file inode
+```
+
+Intuitively, `skipelem` tells us what to look for, and `dirlookup` tells us where it is in the file system.
+
+##### iunlock panic: ref count
+
+In some of the MP4 versions, I kept encountering panic on `iunlock`, going back to its definition and adding some debug prints as follows:
+
+```C
+// Unlock the given inode.
+void iunlock(struct inode *ip)
 {
-    char name[DIRSIZ];
-    return namex(path, 0, name);
+    if (ip == 0 || !holdingsleep(&ip->lock) || ip->ref < 1){
+        // if (ip == 0) {
+        //     printf("iunlock panic: ip is NULL\n");
+        // } else {
+        //     printf("iunlock panic: ip->inum %d, type %d, dev %d, ref %d, holdingsleep %d\n",
+        //         ip->inum, ip->type, ip->dev, ip->ref, holdingsleep(&ip->lock));
+        // }
+        panic("iunlock");
+    }
+
+    releasesleep(&ip->lock);
 }
 ```
 
 > In `kernel/fs.c`
+
+I found that the problem is that `ip->ref < 1`. And the image below shows the possible scenarios that the reference count of an inode could be modified:
+
+![](./README_images/ref_count_panic.png)
 
 #### Device files
 

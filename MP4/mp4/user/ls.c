@@ -80,7 +80,7 @@ void ls(char *path)
         fd = open(path, O_RDONLY);
         if (fd < 0) {
             // This will fail if the directory doesn't have read permission
-            fprintf(2, "ls: cannot open %s\n", path);
+            fprintf(2, "ls: cannot open directory %s for reading\n", path);
             return;
         }
         

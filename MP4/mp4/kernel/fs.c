@@ -319,12 +319,12 @@ void ilock(struct inode *ip)
 void iunlock(struct inode *ip)
 {
     if (ip == 0 || !holdingsleep(&ip->lock) || ip->ref < 1){
-        // if (ip == 0) {
-        //     printf("iunlock panic: ip is NULL\n");
-        // } else {
-        //     printf("iunlock panic: ip->inum %d, type %d, dev %d, ref %d, holdingsleep %d\n",
-        //         ip->inum, ip->type, ip->dev, ip->ref, holdingsleep(&ip->lock));
-        // }
+        if (ip == 0) {
+            printf("iunlock panic: ip is NULL\n");
+        } else {
+            printf("iunlock panic: ip->inum %d, type %d, dev %d, ref %d, holdingsleep %d\n",
+                ip->inum, ip->type, ip->dev, ip->ref, holdingsleep(&ip->lock));
+        }
         panic("iunlock");
     }
 
@@ -629,6 +629,12 @@ int dirlink(struct inode *dp, char *name, uint inum)
 //   skipelem("a", name) = "", setting name = "a"
 //   skipelem("", name) = skipelem("////", name) = 0
 //
+// path: input path string
+// name: output buffer where the extracted component is stored
+// return value: pointer to the remaining path after the extracted component
+// return value: 0 if no more components 
+
+// explain: intuitively, skipelem parse the path string into individual file / directory names
 static char *skipelem(char *path, char *name)
 {
     char *s;
@@ -658,43 +664,66 @@ static char *skipelem(char *path, char *name)
 // If parent != 0, return the inode for the parent and copy the final
 // path element into name, which must have room for DIRSIZ bytes.
 // Must be called inside a transaction since it calls iput().
+
+// nameiparent = 0: return the inode for the final component
+// nameiparent = 1: return the inode for the parent directory 
 static struct inode *namex(char *path, int nameiparent, char *name)
 {
     struct inode *ip, *next;
 
+    // 1. INITIALIZATION: Get starting directory
     if (*path == '/')
-        ip = iget(ROOTDEV, ROOTINO);
+        ip = iget(ROOTDEV, ROOTINO);  // Absolute path: start from root
     else
-        ip = idup(myproc()->cwd);
+        ip = idup(myproc()->cwd);     // Relative path: start from current working directory
 
-    while ((path = skipelem(path, name)) != 0)
+    // 2. PATH TRAVERSAL LOOP: Process each path component
+    while ((path = skipelem(path, name)) != 0)  // skipelem extracts next component
     {
-        ilock(ip);
-        if (ip->type != T_DIR)
-        {
+        ilock(ip);  // Lock current directory for reading
+        
+        // 3. DIRECTORY CHECK: Ensure current inode is a directory
+        if (ip->type != T_DIR) {
             iunlockput(ip);
+            return 0;  // Fail if not a directory
+        }
+        
+        // 4. PERMISSION CHECK: Check if we can traverse this directory
+        // note: Always allow root directory access, and skip checks for device files
+        if (ip->inum != ROOTINO && ip->type != T_DEVICE && !(ip->minor & 0x1)) {
+            // Block traversal if no read permission
+            printf("NAMEX_DEBUG: Permission denied - BEFORE iunlockput: inum=%d, ref=%d, holdingsleep=%d\n", 
+                   ip->inum, ip->ref, holdingsleep(&ip->lock));
+            iunlockput(ip);
+            printf("NAMEX_DEBUG: Permission denied - AFTER iunlockput\n");
             return 0;
         }
-        if (nameiparent && *path == '\0')
-        {
-            // Stop one level early.
+        
+        // 5. PARENT LOOKUP EARLY EXIT: For nameiparent calls
+        // explain: If we want the inode of the parent directory, and we've just processed the last component,
+        // explain: return to the current directory, which is the parent of the last component
+        if (nameiparent && *path == '\0') {
             iunlock(ip);
-            return ip;
+            return ip;          // Return parent directory, not the final component
         }
-        if ((next = dirlookup(ip, name, 0)) == 0)
-        {
+        
+        // 6. COMPONENT LOOKUP: Find the next component in current directory
+        if ((next = dirlookup(ip, name, 0)) == 0) {
             iunlockput(ip);
-            return 0;
+            return 0;  // Component not found
         }
+        
+        // 7. ADVANCE: Move to next component
         iunlockput(ip);
         ip = next;
     }
-    if (nameiparent)
-    {
+    
+    // 8. FINAL HANDLING
+    if (nameiparent) {
         iput(ip);
-        return 0;
+        return 0;  // For parent lookup, we already returned above
     }
-    return ip;
+    return ip;  // Return the final inode
 }
 
 struct inode *namei(char *path)
