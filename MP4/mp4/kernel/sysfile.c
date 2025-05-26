@@ -334,12 +334,12 @@ uint64 sys_open(void)
         }
         // Lock the inode to prevent it from being modified while we're using it
         ilock(ip);
-        printf("SYS_OPEN_DEBUG: After ilock, lock the inode %s, current ref count: %d\n", path, ip->ref);
+        // printf("SYS_OPEN_DEBUG: After ilock, lock the inode %s, current ref count: %d\n", path, ip->ref);
 
         // Check if it's a directory and has flag O_WRONLY or O_RDWR, this shall not happen since we cannot write to a directory
         if (ip->type == T_DIR && omode != O_RDONLY && omode != O_NOACCESS) {
             iunlockput(ip);
-            printf("SYS_OPEN_DEBUG: Opening directory '%s', current ref count: %d\n", path, ip->ref);
+            // printf("SYS_OPEN_DEBUG: Opening directory '%s', current ref count: %d\n", path, ip->ref);
             end_op();
             return -1;
         }
@@ -359,13 +359,13 @@ uint64 sys_open(void)
             // if f is not 0, this would imply that filealloc() succeeded, and fdalloc() failed
             // so we need to close the file and return -1
             fileclose(f);
-            printf("SYS_OPEN_DEBUG: Failed to allocate fd for '%s', after close, current ref count: %d\n", path, ip->ref);
+            // printf("SYS_OPEN_DEBUG: Failed to allocate fd for '%s', after close, current ref count: %d\n", path, ip->ref);
         }
         // explain: use iunlockput() to: 
         // explain: 1. unlock the inode (which we previously locked by ilock(ip))
         // explain: 2. decrease the reference count (by iput() internally), since we previously incremented it by namei(path)
         iunlockput(ip);
-        printf("SYS_OPEN_DEBUG: After iunlockput, current ref count: %d\n", path, ip->ref);
+        // printf("SYS_OPEN_DEBUG: After iunlockput, current ref count: %d\n", path, ip->ref);
         end_op();
         return -1;
     }
@@ -381,15 +381,17 @@ uint64 sys_open(void)
         if (ip->type != T_DEVICE) {
             // Check if read access is requested but not permitted
             if ((omode == O_RDONLY || omode == O_RDWR) && !(ip->minor & 0x1)) {
+                myproc()->ofile[fd] = 0;
                 fileclose(f);     // f->type = FD_NONE, f->ip = 0, no iput() called
-                printf("SYS_OPEN_DEBUG: Failed to open '%s', after fileclose, current ref count: %d\n", path, omode, ip->ref);
+                // printf("SYS_OPEN_DEBUG: Failed to open '%s', after fileclose, current ref count: %d\n", path, omode, ip->ref);
                 iunlockput(ip);   // explain: use iunlockput() to unlock and decrease ref count
-                printf("SYS_OPEN_DEBUG: After iunlockput, current ref count: %d\n", path, ip->ref);
+                // printf("SYS_OPEN_DEBUG: After iunlockput, current ref count: %d\n", path, ip->ref);
                 end_op();
                 return -1;
             }
             // Check if write access is requested but not permitted
             if ((omode == O_WRONLY || omode == O_RDWR) && !(ip->minor & 0x2)) {
+                myproc()->ofile[fd] = 0;
                 fileclose(f);     // f->type = FD_NONE, f->ip = 0, no iput() called
                 iunlockput(ip);   // explain: use iunlockput() to unlock and decrease ref count
                 end_op();

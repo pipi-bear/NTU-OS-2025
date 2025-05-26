@@ -40,6 +40,7 @@ struct file *filealloc(void)
             f->ip = 0;
             f->off = 0;
             f->major = 0;
+            // printf("FILEALLOC_DEBUG: Allocated file=%p\n", f);
             release(&ftable.lock);
             return f;
         }
@@ -64,19 +65,20 @@ void fileclose(struct file *f)
 {
     struct file ff;
 
-    printf("FILECLOSE_DEBUG: Starting fileclose, f=%p, current ref count: %d\n", f, f->ref);
+    // printf("FILECLOSE_DEBUG: Process %d closing file=%p, ref=%d\n", 
+    //        myproc()->pid, f, f->ref);
     
     acquire(&ftable.lock);
     if (f->ref < 1)
     {
-        printf("FILECLOSE_DEBUG: ref count < 1, panic\n");
+        // printf("FILECLOSE_DEBUG: ref count < 1, panic\n");
         panic("fileclose");
     }
     
-    printf("FILECLOSE_DEBUG: File ref count before decrement: %d\n", f->ref);
+    // printf("FILECLOSE_DEBUG: File ref count before decrement: %d\n", f->ref);
     
     if (--f->ref > 0) {
-        printf("FILECLOSE_DEBUG: File still has references (%d), not closing\n", f->ref);
+        // printf("FILECLOSE_DEBUG: File still has references (%d), not closing\n", f->ref);
         release(&ftable.lock);
         return;
     }
@@ -86,30 +88,30 @@ void fileclose(struct file *f)
     f->type = FD_NONE;
     release(&ftable.lock);
 
-    printf("FILECLOSE_DEBUG: File ref reached 0, proceeding with cleanup\n");
-    printf("FILECLOSE_DEBUG: File type=%d, ip=%p\n", ff.type, ff.ip);
+    // printf("FILECLOSE_DEBUG: File ref reached 0, proceeding with cleanup\n");
+    // printf("FILECLOSE_DEBUG: File type=%d, ip=%p\n", ff.type, ff.ip);
     
     if (ff.type == FD_PIPE) {
-        printf("FILECLOSE_DEBUG: Closing pipe\n");
+        // printf("FILECLOSE_DEBUG: Closing pipe\n");
         pipeclose(ff.pipe, ff.writable);
     } else if (ff.type == FD_INODE || ff.type == FD_DEVICE) {
-        printf("FILECLOSE_DEBUG: Closing inode/device, calling iput on ip=%p\n", ff.ip);
-        if (ff.ip != 0) {
-            printf("FILECLOSE_DEBUG: Before iput - ip->inum=%d, ip->ref=%d\n", 
-                   ff.ip->inum, ff.ip->ref);
-        }
+        // printf("FILECLOSE_DEBUG: Closing inode/device, calling iput on ip=%p\n", ff.ip);
+        // if (ff.ip != 0) {
+        //     printf("FILECLOSE_DEBUG: Before iput - ip->inum=%d, ip->ref=%d\n", 
+        //            ff.ip->inum, ff.ip->ref);
+        // }
         begin_op();
         iput(ff.ip);
         end_op();
-        if (ff.ip != 0) {
-            printf("FILECLOSE_DEBUG: After iput - ip->inum=%d, ip->ref=%d\n", 
-                   ff.ip->inum, ff.ip->ref);
-        }
+        // if (ff.ip != 0) {
+        //     printf("FILECLOSE_DEBUG: After iput - ip->inum=%d, ip->ref=%d\n", 
+        //            ff.ip->inum, ff.ip->ref);
+        // }
     } else {
-        printf("FILECLOSE_DEBUG: Unknown file type %d, no cleanup needed\n", ff.type);
+        // printf("FILECLOSE_DEBUG: Unknown file type %d, no cleanup needed\n", ff.type);
     }
     
-    printf("FILECLOSE_DEBUG: fileclose completed\n");
+    // printf("FILECLOSE_DEBUG: fileclose completed\n");
 }
 
 // Get metadata about file f.

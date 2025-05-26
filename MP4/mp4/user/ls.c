@@ -56,8 +56,8 @@ void ls(char *path)
 
     if (fstat(fd, &st) < 0)
     {
-        close(fd);
         fprintf(2, "ls: cannot open %s\n", path);
+        close(fd);
         return;
     }
     
@@ -72,6 +72,12 @@ void ls(char *path)
 
     case T_DIR:
         
+        if (strlen(path) + 1 + DIRSIZ + 1 > sizeof buf)
+        {
+            printf("ls: path too long\n");
+            break;
+        }
+
         // Close the O_NOACCESS fd and reopen with O_RDONLY for reading contents
         close(fd);
         
@@ -80,7 +86,7 @@ void ls(char *path)
         fd = open(path, O_RDONLY);
         if (fd < 0) {
             // This will fail if the directory doesn't have read permission
-            fprintf(2, "ls: cannot open directory %s for reading\n", path);
+            // fprintf(2, "ls: cannot open directory %s for reading\n", path);
             return;
         }
         
@@ -123,6 +129,7 @@ void ls(char *path)
                 
             struct stat entry_st;
             if (fstat(entry_fd, &entry_st) < 0) {
+                fprintf(2, "ls: cannot open %s\n", buf);
                 close(entry_fd);
                 continue;
             }

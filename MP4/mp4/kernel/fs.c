@@ -319,12 +319,12 @@ void ilock(struct inode *ip)
 void iunlock(struct inode *ip)
 {
     if (ip == 0 || !holdingsleep(&ip->lock) || ip->ref < 1){
-        if (ip == 0) {
-            printf("iunlock panic: ip is NULL\n");
-        } else {
-            printf("iunlock panic: ip->inum %d, type %d, dev %d, ref %d, holdingsleep %d\n",
-                ip->inum, ip->type, ip->dev, ip->ref, holdingsleep(&ip->lock));
-        }
+        // if (ip == 0) {
+        //     printf("iunlock panic: ip is NULL\n");
+        // } else {
+        //     printf("iunlock panic: ip->inum %d, type %d, dev %d, ref %d, holdingsleep %d\n",
+        //         ip->inum, ip->type, ip->dev, ip->ref, holdingsleep(&ip->lock));
+        // }
         panic("iunlock");
     }
 
@@ -692,10 +692,10 @@ static struct inode *namex(char *path, int nameiparent, char *name)
         // note: Always allow root directory access, and skip checks for device files
         if (ip->inum != ROOTINO && ip->type != T_DEVICE && !(ip->minor & 0x1)) {
             // Block traversal if no read permission
-            printf("NAMEX_DEBUG: Permission denied - BEFORE iunlockput: inum=%d, ref=%d, holdingsleep=%d\n", 
-                   ip->inum, ip->ref, holdingsleep(&ip->lock));
+            // printf("NAMEX_DEBUG: Permission denied - BEFORE iunlockput: inum=%d, ref=%d, holdingsleep=%d\n", 
+            //        ip->inum, ip->ref, holdingsleep(&ip->lock));
             iunlockput(ip);
-            printf("NAMEX_DEBUG: Permission denied - AFTER iunlockput\n");
+            // printf("NAMEX_DEBUG: Permission denied - AFTER iunlockput\n");
             return 0;
         }
         
