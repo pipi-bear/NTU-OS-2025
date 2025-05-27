@@ -74,19 +74,19 @@ uint64 sys_read(void)
 
     // Gets fd from the first argument, store file struct in f
     if (argfd(0, 0, &f) < 0) {
-        printf("DEBUG_SYS_READ: argfd failed - invalid or closed fd\n");
+        // printf("DEBUG_SYS_READ: argfd failed - invalid or closed fd\n");
         return -1;
     }
     
     // Gets buffer address from the second argument, and store address in p
     if (argaddr(1, &p) < 0) {
-        printf("DEBUG_SYS_READ: argaddr failed - couldn't read buffer address\n");
+        // printf("DEBUG_SYS_READ: argaddr failed - couldn't read buffer address\n");
         return -1;
     }
 
     // Gets size to read from the third argument, and store in n
     if (argint(2, &n) < 0) {
-        printf("DEBUG_SYS_READ: argint failed - couldn't read size argument\n");
+        // printf("DEBUG_SYS_READ: argint failed - couldn't read size argument\n");
         return -1;
     }
 
@@ -98,8 +98,8 @@ uint64 sys_read(void)
 
     // If not a device and does not have read permission, return -1
     if (!(f->ip->minor & 0x1) && f->ip->type != T_DEVICE) {
-        printf("DEBUG_SYS_READ: no read permission (minor=%d) and not a device (type=%d)\n", 
-               f->ip->minor, f->ip->type);
+        // printf("DEBUG_SYS_READ: no read permission (minor=%d) and not a device (type=%d)\n", 
+        //        f->ip->minor, f->ip->type);  
         return -1;
     }
 
@@ -114,8 +114,16 @@ uint64 sys_write(void)
 
     if (argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argaddr(1, &p) < 0)
         return -1;
+    
+    // Only debug file writes (not console/device writes)
+    // if (f->ip->type != T_DEVICE && n >= 512) {
+    //     printf("SYS_WRITE_DEBUG: Writing to file - inum=%d, type=%d, n=%d\n", 
+    //            f->ip->inum, f->ip->type, n);
+    // }
+
     if (!(f->ip->minor & 0x2) && f->ip->type != T_DEVICE) // no write permission, if not a device
         return -1;
+    
     return filewrite(f, p, n);
 }
 
@@ -356,6 +364,9 @@ uint64 sys_open(void)
     if ((n = argstr(0, path, MAXPATH)) < 0 || argint(1, &omode) < 0)
         return -1;
 
+    // printf("SYS_OPEN_DEBUG: Opening '%s' with mode %d (O_RDWR=%d, O_WRONLY=%d, O_RDONLY=%d)\n", 
+    //     path, omode, O_RDWR, O_WRONLY, O_RDONLY);
+
     begin_op();
 
     // If it's a file and O_CREATE flag is set, create a new file
@@ -421,8 +432,10 @@ uint64 sys_open(void)
         // For O_NOACCESS: set neither readable nor writable (spec 3.3.5 1.)
         f->readable = 0;
         f->writable = 0;
+        // printf("SYS_OPEN_DEBUG: Set O_NOACCESS - readable=0, writable=0\n");
     } else {
         // For non-device files, check permissions against requested access mode
+        // T_DEVICE: 3
         if (ip->type != T_DEVICE) {
             // Check if read access is requested but not permitted
             if ((omode == O_RDONLY || omode == O_RDWR) && !(ip->minor & 0x1)) {
@@ -435,7 +448,7 @@ uint64 sys_open(void)
                 return -1;
             }
             // Check if write access is requested but not permitted
-            if ((omode == O_WRONLY || omode == O_RDWR) && !(ip->minor & 0x2)) {
+            if ((omode & O_WRONLY || omode & O_RDWR) && !(ip->minor & 0x2)) {
                 myproc()->ofile[fd] = 0;
                 fileclose(f);     // f->type = FD_NONE, f->ip = 0, no iput() called
                 iunlockput(ip);   // explain: use iunlockput() to unlock and decrease ref count
@@ -445,8 +458,10 @@ uint64 sys_open(void)
         }
 
         // Set file descriptor permissions based on open mode
-        f->readable = (omode == O_RDONLY || omode == O_RDWR);
-        f->writable = (omode == O_WRONLY || omode == O_RDWR);
+        f->readable = !(omode & O_WRONLY);  // readable unless write-only
+        f->writable = (omode & O_WRONLY) || (omode & O_RDWR);  // writable if write-only or read-write
+        // printf("SYS_OPEN_DEBUG: Set permissions - readable=%d, writable=%d\n", 
+        //         f->readable, f->writable);
     }
 
     // Until now, we have successfully allocated a file struct and a fd

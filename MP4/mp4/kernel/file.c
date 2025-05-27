@@ -141,7 +141,7 @@ int fileread(struct file *f, uint64 addr, int n)
 
     // Allow reading from symlinks even if not marked as readable (O_NOACCESS case)
     if (f->readable == 0 && f->ip->type != T_SYMLINK){
-        printf("DEBUG_FILEREAD: File is not readable\n");
+        // printf("DEBUG_FILEREAD: File is not readable\n");
         return -1;
     }
 
@@ -152,7 +152,7 @@ int fileread(struct file *f, uint64 addr, int n)
     else if (f->type == FD_DEVICE)
     {
         if (f->major < 0 || f->major >= NDEV || !devsw[f->major].read){
-            printf("DEBUG_FILEREAD: Device read failed\n");
+            // printf("DEBUG_FILEREAD: Device read failed\n");
             return -1;
         }
         r = devsw[f->major].read(1, addr, n);
@@ -178,8 +178,22 @@ int filewrite(struct file *f, uint64 addr, int n)
 {
     int r, ret = 0;
 
-    if (f->writable == 0)
+    // Only debug large file writes, not console output
+    // if (f->type == FD_INODE && n >= 512) {
+    //     printf("FILEWRITE_DEBUG: Large file write - inum=%d, n=%d, f->off=%d\n", 
+    //            f->ip->inum, n, f->off);
+    //     printf("FILEWRITE_DEBUG: File permissions - f->writable=%d, f->readable=%d\n", 
+    //            f->writable, f->readable);
+    //     printf("FILEWRITE_DEBUG: Inode permissions - ip->minor=%d (readable=%d, writable=%d)\n", 
+    //            f->ip->minor, f->ip->minor & 0x1, f->ip->minor & 0x2);
+    // }
+
+    if (f->writable == 0) {
+        // if (f->type == FD_INODE && n >= 512) {
+        //     printf("FILEWRITE_DEBUG: File not writable, returning -1\n");
+        // }
         return -1;
+    }
 
     if (f->type == FD_PIPE)
     {
@@ -201,11 +215,16 @@ int filewrite(struct file *f, uint64 addr, int n)
         // might be writing a device like the console.
         int max = ((MAXOPBLOCKS - 1 - 1 - 2) / 2) * BSIZE;
         int i = 0;
+        
         while (i < n)
         {
             int n1 = n - i;
             if (n1 > max)
                 n1 = max;
+
+            // if (n >= 512) {  // Only debug large writes
+            //     printf("FILEWRITE_DEBUG: Writing chunk %d bytes at offset %d\n", n1, f->off);
+            // }
 
             begin_op();
             ilock(f->ip);
@@ -214,6 +233,10 @@ int filewrite(struct file *f, uint64 addr, int n)
             iunlock(f->ip);
             end_op();
 
+            // if (n >= 512) {  // Only debug large writes
+            //     printf("FILEWRITE_DEBUG: writei returned %d bytes\n", r);
+            // }
+
             if (r < 0)
                 break;
             if (r != n1)
@@ -221,6 +244,10 @@ int filewrite(struct file *f, uint64 addr, int n)
             i += r;
         }
         ret = (i == n ? n : -1);
+        
+        // if (n >= 512) {  // Only debug large writes
+        //     printf("FILEWRITE_DEBUG: Total wrote %d/%d bytes\n", i, n);
+        // }
     }
     else
     {

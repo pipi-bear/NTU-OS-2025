@@ -118,8 +118,8 @@ void ls(char *path)
             int target_fd;
             struct stat target_st;
             
-            fprintf(2, "DEBUG_SYMLINK: Processing symlink '%s', fd=%d\n", path, fd);
-            fprintf(2, "DEBUG_SYMLINK: File type=%d, permissions=%s\n", st.type, fmtmode(st.minor));
+            // fprintf(2, "DEBUG_SYMLINK: Processing symlink '%s', fd=%d\n", path, fd);
+            // fprintf(2, "DEBUG_SYMLINK: File type=%d, permissions=%s\n", st.type, fmtmode(st.minor));
             
             // Read the symlink target from the inode data
             // Since in the sys_symlink() function in sysfile.c, we wrote the target path to the inode data by writei()
@@ -131,7 +131,7 @@ void ls(char *path)
             // fstat return 0 on success
             int read_stat_error = fstat(fd, &target_st);
             if (read_stat_error < 0) {
-                fprintf(2, "DEBUG_SYMLINK: Failed to fstat target\n");
+                // fprintf(2, "DEBUG_SYMLINK: Failed to fstat target\n");
                 printf("%s %d %d %d %s\n", fmtname(path), st.type, st.ino, st.size, fmtmode(st.minor));
                 break;
             }
@@ -142,52 +142,52 @@ void ls(char *path)
             // First read the target path from the symlink's data
             int read_bytes = read(fd, target, sizeof(target) - 1);
             if (read_bytes < 0) {
-                fprintf(2, "DEBUG_SYMLINK: Failed to read target path\n");
+                // fprintf(2, "DEBUG_SYMLINK: Failed to read target path\n");
                 printf("%s %d %d %d %s\n", fmtname(path), st.type, st.ino, st.size, fmtmode(st.minor));
                 break;
             }
             target[read_bytes] = '\0';  // Ensure null termination
-            fprintf(2, "DEBUG_SYMLINK: Target path = '%s'\n", target);
+            // fprintf(2, "DEBUG_SYMLINK: Target path = '%s'\n", target);
             
             // Try to open the target with O_NOACCESS first
             target_fd = open(target, O_NOACCESS);
             if (target_fd < 0) {
-                fprintf(2, "DEBUG_SYMLINK: Failed to open target with O_NOACCESS\n");
+                // fprintf(2, "DEBUG_SYMLINK: Failed to open target with O_NOACCESS\n");
                 printf("%s %d %d %d %s\n", fmtname(path), st.type, st.ino, st.size, fmtmode(st.minor));
                 break;
             }
             
             if (fstat(target_fd, &target_st) < 0) {
-                fprintf(2, "DEBUG_SYMLINK: Failed to fstat target\n");
+                // fprintf(2, "DEBUG_SYMLINK: Failed to fstat target\n");
                 close(target_fd);
                 printf("%s %d %d %d %s\n", fmtname(path), st.type, st.ino, st.size, fmtmode(st.minor));
                 break;
             }
             
-            fprintf(2, "DEBUG_SYMLINK: Target type=%d, minor=%d\n", target_st.type, target_st.minor);
+            // fprintf(2, "DEBUG_SYMLINK: Target type=%d, minor=%d\n", target_st.type, target_st.minor);
             close(target_fd);
             
             // If target is a directory, try to list its contents
             if (target_st.type == T_DIR) {
-                fprintf(2, "DEBUG_SYMLINK: Target is a directory\n");
+                // fprintf(2, "DEBUG_SYMLINK: Target is a directory\n");
                 // Check if path to target is readable
                 if (check_path_permissions(target)) {
-                    fprintf(2, "DEBUG_SYMLINK: Target directory is readable, listing contents\n");
+                    // fprintf(2, "DEBUG_SYMLINK: Target directory is readable, listing contents\n");
                     ls(target);  // List the target directory
                 } else {
                     // If target directory isn't accessible, ls should fail
-                    fprintf(2, "DEBUG_SYMLINK: Target directory is not readable\n");
+                    // fprintf(2, "DEBUG_SYMLINK: Target directory is not readable\n");
                     printf("ls: cannot open %s\n", target);
                 }
             } else {        // if target is a file
-                fprintf(2, "DEBUG_SYMLINK: Target is a file\n");
+                // fprintf(2, "DEBUG_SYMLINK: Target is a file\n");
                 // check the path of the file to see if each of the parent directories have read permission
                 if (check_path_permissions(target)) {
-                    fprintf(2, "DEBUG_SYMLINK: Target file path is readable\n");
+                    // fprintf(2, "DEBUG_SYMLINK: Target file path is readable\n");
                     // print the symlink itself
                     printf("%s %d %d %d %s\n", fmtname(path), st.type, st.ino, st.size, fmtmode(st.minor));
                 } else {
-                    fprintf(2, "DEBUG_SYMLINK: Target file path is not readable\n");
+                    // fprintf(2, "DEBUG_SYMLINK: Target file path is not readable\n");
                     printf("ls: cannot open %s\n", target);
                 }
             }
