@@ -672,6 +672,9 @@ static char *skipelem(char *path, char *name)
 static struct inode *namex(char *path, int nameiparent, char *name)
 {
     struct inode *ip, *next;
+    int symlink_depth = 0;
+    char target_path[MAXPATH];
+    int target_len;
 
     // 1. INITIALIZATION: Get starting directory
     if (*path == '/')
@@ -679,13 +682,18 @@ static struct inode *namex(char *path, int nameiparent, char *name)
     else
         ip = idup(myproc()->cwd);     // Relative path: start from current working directory
 
+    printf("NAMEX_DEBUG: Starting path resolution for '%s'\n", path);
+
     // 2. PATH TRAVERSAL LOOP: Process each path component
     while ((path = skipelem(path, name)) != 0)  // skipelem extracts next component
     {
+        printf("NAMEX_DEBUG: Processing component '%s', remaining path '%s'\n", name, path);
+        
         ilock(ip);  // Lock current directory for reading
         
         // 3. DIRECTORY CHECK: Ensure current inode is a directory
         if (ip->type != T_DIR) {
+            printf("NAMEX_DEBUG: Current inode is not a directory (type=%d)\n", ip->type);
             iunlockput(ip);
             return 0;  // Fail if not a directory
         }
@@ -694,10 +702,9 @@ static struct inode *namex(char *path, int nameiparent, char *name)
         // note: Always allow root directory access, and skip checks for device files
         if (ip->inum != ROOTINO && ip->type != T_DEVICE && !(ip->minor & 0x1)) {
             // Block traversal if no read permission
-            // printf("NAMEX_DEBUG: Permission denied - BEFORE iunlockput: inum=%d, ref=%d, holdingsleep=%d\n", 
-            //        ip->inum, ip->ref, holdingsleep(&ip->lock));
+            printf("NAMEX_DEBUG: Permission denied for directory (inum=%d, minor=%d)\n", 
+                   ip->inum, ip->minor);
             iunlockput(ip);
-            // printf("NAMEX_DEBUG: Permission denied - AFTER iunlockput\n");
             return 0;
         }
         
@@ -705,27 +712,70 @@ static struct inode *namex(char *path, int nameiparent, char *name)
         // explain: If we want the inode of the parent directory, and we've just processed the last component,
         // explain: return to the current directory, which is the parent of the last component
         if (nameiparent && *path == '\0') {
+            printf("NAMEX_DEBUG: Returning parent directory\n");
             iunlock(ip);
             return ip;          // Return parent directory, not the final component
         }
         
         // 6. COMPONENT LOOKUP: Find the next component in current directory
         if ((next = dirlookup(ip, name, 0)) == 0) {
+            printf("NAMEX_DEBUG: Component '%s' not found in directory\n", name);
             iunlockput(ip);
             return 0;  // Component not found
         }
         
-        // 7. ADVANCE: Move to next component
         iunlockput(ip);
+        
+        // 7. SYMLINK RESOLUTION: Check if we found a symlink
+        ilock(next);
+        printf("NAMEX_DEBUG: Found component '%s' (inum=%d, type=%d)\n", 
+               name, next->inum, next->type);
+               
+        if (next->type == T_SYMLINK) {
+            printf("NAMEX_DEBUG: Component '%s' is a symlink, following it...\n", name);
+            
+            // Prevent infinite symlink loops
+            if (++symlink_depth > 10) {
+                printf("NAMEX_DEBUG: Too many symlink levels\n");
+                iunlockput(next);
+                return 0;
+            }
+            
+            // Read the target path from the symlink
+            target_len = readi(next, 0, (uint64)target_path, 0, MAXPATH-1);
+            if (target_len < 0) {
+                printf("NAMEX_DEBUG: Failed to read symlink target\n");
+                iunlockput(next);
+                return 0;
+            }
+            target_path[target_len] = '\0';  // Null terminate
+            
+            printf("NAMEX_DEBUG: Symlink target is '%s'\n", target_path);
+            iunlockput(next);
+            
+            // Recursively resolve the symlink target
+            if ((next = namei(target_path)) == 0) {
+                printf("NAMEX_DEBUG: Symlink target '%s' doesn't exist\n", target_path);
+                return 0;
+            }
+            
+            printf("NAMEX_DEBUG: Symlink resolved to inode (type=%d)\n", next->type);
+        } else {
+            iunlock(next);
+        }
+        
+        // 8. ADVANCE: Move to next component
         ip = next;
     }
     
-    // 8. FINAL HANDLING
+    printf("NAMEX_DEBUG: Path resolution completed successfully\n");
+    
+    // 9. FINAL HANDLING
     if (nameiparent) {
         iput(ip);
-        return 0;  // For parent lookup, we already returned above
+        return 0;
     }
-    return ip;  // Return the final inode
+    return ip;
 }
 
 struct inode *namei(char *path)
