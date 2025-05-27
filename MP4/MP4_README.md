@@ -1,3 +1,34 @@
+# Instructions
+## README
+
+I wrote this readme file while I was still modifying the code files, so <ins>some content might not match the final version of my code</ins>.
+
+I think this readme could just serve as something that you could check to see if anything that is bothering you is also shown in it, however, since I do not have enough time to write it (too much content is covered in this MP), so it is probable that you wouldn't find the thing that you need.
+
+The most important part of this readme is the next section, which is the "Modified files", you could check which files are modified there, and this could be really useful.
+
+## code
+
+### Debugging comments
+
+Various debugging prints are added to the code files, I think all of them would be printing `<function_name>_DEBUG:` (or opposite order) at the beginning of the print.
+
+The title before `:` would all be in uppercases, so that you can distinguish them from the required prints.
+
+These debugging prints are sometimes added to the functions that are not modified by ourselves, including some fundamental functions that would be called by the functions we're required to implement. 
+
+I found them really useful for debugging, so you can uncomment  them to check what actually happened if needed.
+
+# Modified files 
+
+In this MP, we're required to generate and hand in a `.patch` file, which would mark the differences compared with the original `mp4.zip`.
+
+The following image shows the files contained in the `r13922136.patch` file, you can check it to identify the files that needed to be modified.
+
+![](./README_images/patch_files.png)
+
+Also, `r13922136.patch` could be checked directly to see what actually are the things that I modified.
+
 # Problem 1 (Access control and Symbolic links)
 ## Key values used 
 
