@@ -72,10 +72,37 @@ uint64 sys_read(void)
     int n;
     uint64 p;
 
-    if (argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argaddr(1, &p) < 0)
+    // Gets fd from the first argument, store file struct in f
+    if (argfd(0, 0, &f) < 0) {
+        printf("DEBUG_SYS_READ: argfd failed - invalid or closed fd\n");
         return -1;
-    if (!(f->ip->minor & 0x1) && f->ip->type != T_DEVICE) // no read permission, if not a device
+    }
+    
+    // Gets buffer address from the second argument, and store address in p
+    if (argaddr(1, &p) < 0) {
+        printf("DEBUG_SYS_READ: argaddr failed - couldn't read buffer address\n");
         return -1;
+    }
+
+    // Gets size to read from the third argument, and store in n
+    if (argint(2, &n) < 0) {
+        printf("DEBUG_SYS_READ: argint failed - couldn't read size argument\n");
+        return -1;
+    }
+
+    // Allow reading from symlinks even if opened with O_NOACCESS
+    // Symlinks always have read permission (ip->minor & 0x1 is always true)
+    if (f->ip->type == T_SYMLINK) {
+        return fileread(f, p, n);
+    }
+
+    // If not a device and does not have read permission, return -1
+    if (!(f->ip->minor & 0x1) && f->ip->type != T_DEVICE) {
+        printf("DEBUG_SYS_READ: no read permission (minor=%d) and not a device (type=%d)\n", 
+               f->ip->minor, f->ip->type);
+        return -1;
+    }
+
     return fileread(f, p, n);
 }
 
@@ -126,7 +153,7 @@ uint64 sys_fstat(void)
     if ((!f->readable && !f->writable) ||  // O_NOACCESS case
         (f->ip->minor & 0x1) ||            // Has read permission
         f->ip->type == T_DEVICE) {         // Is a device
-        return filestat(f, st);
+                return filestat(f, st);
     }
 
     // printf("DEBUG_FSTAT: no read permission and not O_NOACCESS, type=%d, minor=%d\n", 
@@ -674,6 +701,22 @@ uint64 sys_symlink(void)
         return -1;
 
     begin_op();
+
+    // First check if the path already exists
+    ip = namei(path);
+    if(ip) {
+        // If path exists, we need to preserve it and fail the new symlink
+        ilock(ip);
+        // Always unlock and decrease reference count to preserve the existing file/symlink
+        iunlockput(ip);
+        end_op();
+        // After properly preserving the existing file, print error and return
+        // This preserves the original symlink state (e.g., test2_fake -> test2)
+        // and prevents the new symlink (e.g., test2_fake -> test1) from overwriting it
+        // note: printed in user/symln.c
+        // printf("symlink %s %s: failed\n", target, path);
+        return -1;
+    }
 
     // Create a new inode for the symlink at path
     // Use T_SYMLINK (type 4, in kernel/stat.h) as the type of the inode

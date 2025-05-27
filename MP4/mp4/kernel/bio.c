@@ -99,67 +99,73 @@ struct buf *bget(uint dev, uint blockno)
 struct buf*
 bread(uint dev, uint blockno)
 {
-  struct buf *b;
-  uint pbn0, pbn1;
-  int is_forced_fail_target = 0;
-  int fail_disk = -1;
+    struct buf *b;
+    uint pbn0, pbn1;
+    int fail_disk;
+    int pbn0_fail_or_not;
 
-  pbn0 = blockno;
-  pbn1 = blockno + LOGICAL_DISK_SIZE;
-
-  b = bget(dev, blockno);
-
-  if (force_read_error_pbn != -1 && b->blockno == force_read_error_pbn) {
-    is_forced_fail_target = 1;
-    fail_disk = 0;
-  } else if (force_disk_fail_id != -1) {
-    is_forced_fail_target = 1;
-    fail_disk = force_disk_fail_id;
-  }
-
-  if (!b->valid || is_forced_fail_target) {
-    if (fail_disk == 0) {
-      b->blockno = pbn1;
-      virtio_disk_rw(b, 0);
-      b->valid = 1;
-    } else if (fail_disk == 1) {
-      b->blockno = pbn0;
-      virtio_disk_rw(b, 0);
-      b->valid = 1;
-    } else {
-      b->blockno = pbn0;
-      virtio_disk_rw(b, 0);
-      b->valid = 1;
+    b = bget(dev, blockno);
+    
+    if (!b->valid) {
+        // Calculate physical block numbers
+        if (blockno < DISK1_START_BLOCK) {
+            pbn0 = blockno;
+            pbn1 = blockno + DISK1_START_BLOCK;
+        } else {
+            // If reading from mirror area, treat it as a direct read
+            pbn0 = blockno;
+            pbn1 = blockno;
+        }
+        
+        // Read current simulation state
+        fail_disk = force_disk_fail_id;
+        pbn0_fail_or_not = (force_read_error_pbn != -1 && force_read_error_pbn == pbn0);
+        
+        // Normal Path: Try to read from Disk 0 first
+        if (fail_disk != 0 && !pbn0_fail_or_not) {
+            // Disk 0 is available and pbn0 is not specifically failed
+            b->blockno = pbn0;
+            virtio_disk_rw(b, 0);
+            b->valid = 1;
+        }
+        // Fallback Path: Read from Disk 1 if Disk 0 failed or pbn0 failed
+        else if (fail_disk != 1) {
+            // Disk 1 is available for fallback
+            b->blockno = pbn1;
+            virtio_disk_rw(b, 0);
+            b->blockno = blockno;  // Restore original blockno
+            b->valid = 1;
+        }
+        else {
+            // Both disks failed - this shouldn't happen in normal operation
+            panic("bread: both disks failed");
+        }
     }
-    b->blockno = blockno;
-  }
-  return b;
+    
+    return b;
 }
 
-// TODO: RAID 1 simulation
-// Write b's contents to disk.  Must be locked.
+// Write b's contents to disk. 
 void bwrite(struct buf *b)
 {
     if (!holdingsleep(&b->lock))
         panic("bwrite");
     
-    // Save the original block number, since we need to restore it after mirroring
-    uint orig_blockno = b->blockno;
-    
-    // Check if we're writing to the mirror disk area (Disk 1)
-    if (b->blockno >= DISK1_START_BLOCK) {
-        panic("bwrite: attempting to write directly to mirror disk area");
-    }
+    uint orig_blockno = b->blockno;     // b initially holds the target physical block number
+    uint pbn0, pbn1;
 
     // Calculate physical block numbers for both disks
-    // buffer b: contains data to be written
-    uint pbn0 = b->blockno;
-    uint pbn1 = b->blockno + DISK1_START_BLOCK;
+    if (orig_blockno < DISK1_START_BLOCK) {
+        pbn0 = orig_blockno;
+        pbn1 = orig_blockno + DISK1_START_BLOCK;
+    } else {
+        // Write to mirror area - map back to corresponding primary block
+        pbn0 = orig_blockno - DISK1_START_BLOCK;
+        pbn1 = orig_blockno;
+    }
 
     // Read current simulation state
-    // fail_disk: -1 if no failure, 0 if Disk 0 failed, 1 if Disk 1 failed
     int fail_disk = force_disk_fail_id;
-    // force_read_error_pbn: -1 for no failure, or specific PBN that should fail
     int pbn0_fail_or_not = (force_read_error_pbn != -1 && force_read_error_pbn == pbn0);
 
     // Print diagnostic message
@@ -168,10 +174,10 @@ void bwrite(struct buf *b)
 
     // Handle write to Disk 0 (Primary)
     if (fail_disk == 0) {
-        // Disk 0 has failed
+        // Skip if Disk 0 has failed
         printf("BW_ACTION: SKIP_PBN0 (PBN %d) due to simulated Disk 0 failure.\n", pbn0);
     } else if (pbn0_fail_or_not) {
-        // Specific block failure on Disk 0
+        // Skip if PBN0 is simulated as a bad block
         printf("BW_ACTION: SKIP_PBN0 (PBN %d) due to simulated PBN0 block failure.\n", pbn0);
     } else {
         // PBN0 is clear for writing
@@ -181,21 +187,19 @@ void bwrite(struct buf *b)
     }
 
     // Handle write to Disk 1 (Mirror) - only if writing to logical disk area
-    if (orig_blockno < LOGICAL_DISK_SIZE) {
+    if (orig_blockno < DISK1_START_BLOCK) {
         if (fail_disk == 1) {
             // Disk 1 has failed
             printf("BW_ACTION: SKIP_PBN1 (PBN %d) due to simulated Disk 1 failure.\n", pbn1);
         } else {
             // Disk 1 is clear for writing
-            // note: force_read_error_pbn only targets PBN0, and if PBN0 fails at a block level, 
-            // note: should still attempt write to PBN1 (unless Disk 1 fails)
             printf("BW_ACTION: ATTEMPT_PBN1 (PBN %d).\n", pbn1);
             b->blockno = pbn1;
             virtio_disk_rw(b, 1);
         }
     }
 
-    // Restore original block number to maintain buffer cache consistency
+    // Restore original block number
     b->blockno = orig_blockno;
 }
 

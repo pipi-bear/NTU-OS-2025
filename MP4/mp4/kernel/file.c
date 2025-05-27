@@ -139,8 +139,11 @@ int fileread(struct file *f, uint64 addr, int n)
 {
     int r = 0;
 
-    if (f->readable == 0)
+    // Allow reading from symlinks even if not marked as readable (O_NOACCESS case)
+    if (f->readable == 0 && f->ip->type != T_SYMLINK){
+        printf("DEBUG_FILEREAD: File is not readable\n");
         return -1;
+    }
 
     if (f->type == FD_PIPE)
     {
@@ -148,8 +151,10 @@ int fileread(struct file *f, uint64 addr, int n)
     }
     else if (f->type == FD_DEVICE)
     {
-        if (f->major < 0 || f->major >= NDEV || !devsw[f->major].read)
+        if (f->major < 0 || f->major >= NDEV || !devsw[f->major].read){
+            printf("DEBUG_FILEREAD: Device read failed\n");
             return -1;
+        }
         r = devsw[f->major].read(1, addr, n);
     }
     else if (f->type == FD_INODE)
