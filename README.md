@@ -96,10 +96,36 @@ The only file that should be modified is:
 #### Spec
 
 - `MP3/MP3-4.pdf`: Detailed instructions for MP3
-- `MP3/mp3.pptx.pdf`: Simplified introduction about this MP offered by the TAs
+- `MP3/mp3.pptx.pdf`: Simplified instructions about this MP offered by the TAs
 
 #### Additional information
 
 - `MP3/MP3_README.md`: Some notes and explanations that I took for this MP
-> :bulb: This could be helpful especially for the <ins>EDF-CBS scheduling algorithm</ins>, since some of the requirements are not clearly mentioned in the spec, and I recorded some of replies from the TAs in the discussions section on NTUCool.
+> :bulb: This could be helpful especially for the <ins>EDF-CBS scheduling algorithm</ins>, since some of the requirements are not clearly mentioned in the spec, and I recorded some of the replies from the TAs in the discussions section on NTUCool.
 > - However, this readme file is only partially completed, so you could just scan over and find if anything could be useful.
+
+--- 
+
+### MP4
+
+Many files needed modification in this MP, check the reademe in the MP4 directory `MP4_README.md`, in the top of the file, there's a screenshot showing the files contained in the patch (which we're required to hand in, and would indicate the files that needs modification), also, you can find what I've modified in the `r13922136.patch` file.
+
+#### Spec
+
+- `MP4/mp4.pdf`: Detailed instructions for MP4
+- `MP4/mp4-slides.pdf`: Simplified instructions about this MP offered by the TAs
+
+#### Additional information
+
+- `MP4/MP4_README.md`: Some notes and explanations that I took for this MP
+
+:warning: Note that this readme file is only partially completed, and might contain some incorrect content, since I do not have time to update all the content to align with the final version of my code.
+
+However, some things could still be useful:
+- Screenshot of the patch file content 
+- Subsection "IMPORTANT MODIFICATION", which shows how to add permission field without modifying inode size
+- I recorded some of the replies from the TAs in the discussions section on NTUCool. 
+
+> In the end of the markdown file.
+
+- For some functions that I'm not certain about the usage, like `namex`, or something that I'm not familiar with, like "user stub", I asked AI and find the reply useful, so I took screenshot and attached them in the readme. 
