@@ -16,6 +16,8 @@ So be careful not to directly hand in my incorrect version. For reference, my gr
 > I think I got zero point because I handed it in in a rush, so it might be the case that the final version could not successfully compile, maybe some of the contents are still useful (I cannot guarantee, so be careful using it anyways :sob:)
 - MP2: 100 / 140
 - MP3: 97 / 100
+- MP4: 65 / 100 
+> MP4: Got -20 point deduction due to late submission.
 
 ## How to use
 
@@ -124,8 +126,5 @@ Many files needed modification in this MP, check the reademe in the MP4 director
 However, some things could still be useful:
 - Screenshot of the patch file content 
 - Subsection "IMPORTANT MODIFICATION", which shows how to add permission field without modifying inode size
-- I recorded some of the replies from the TAs in the discussions section on NTUCool. 
-
-> In the end of the markdown file.
-
-- For some functions that I'm not certain about the usage, like `namex`, or something that I'm not familiar with, like "user stub", I asked AI and find the reply useful, so I took screenshot and attached them in the readme. 
+- I recorded some of the replies from the TAs in the discussions section on NTUCool, which are attached in the end of the markdown file.
+- For some functions that I'm not certain about the usage (like `namex`), or something that I'm not familiar with (like "user stub"), I asked AI and found that the replies are actually quite useful, so I took screenshots and attached them in `MP4_README.md`. 
